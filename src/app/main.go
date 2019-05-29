@@ -1,5 +1,3 @@
-// +build
-
 package main
 
 import (
@@ -7,13 +5,16 @@ import (
 	"log"
 	"strings"
 	"time"
+	"gio"
+	// "encoding/binary"
 
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
 )
 
-const MICROBIT_NAME = "bbc micro:bit"
+var g = gio.GioDevice{}
 
+const MICROBIT_NAME = "bbc micro:bit"
 
 var light_service_id = gatt.MustParseUUID("02751625523e493b8f941765effa1b20")
 var temperature_service_id = gatt.MustParseUUID("e95d6100251d470aa062fa1922dfa9a8")
@@ -89,8 +90,10 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 		fmt.Printf("Failed to discover services, err: %s\n", err)
 		return
 	}
+	
+	// readingMap := make(map[string]float32)
 
-	for _, s := range ss {		
+	for _, s := range ss {
 		// Discovery characteristics
 		cs, err := p.DiscoverCharacteristics(characteristics, s)
 		if err != nil {
@@ -106,14 +109,13 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				continue
 			}
 			
-			//if c.UUID().String() == watering_char_id {
-				//b, err := p.WriteCharacteristic(c, b, false)
-				
-				//if err != nil {
-					//fmt.Printf("Sleeping for writing watering")
-					//time.Sleep(5 * time.Second)
-				//}
-			//}
+			if c.UUID().Equal(watering_char_id) {				
+				if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
+					fmt.Printf("Failed to write on watering characteristic: %s\n", err)
+				}
+				fmt.Println("Written on watering characteristic")
+				time.Sleep(1 * time.Second)
+			}
 
 			// Subscribe the characteristic, if possible.
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
@@ -131,6 +133,15 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 					}
 					
 					fmt.Printf("notified: % X | %s\n", b, name)
+					
+					//fmt.Printf("adding %s to readingMap\n", c.UUID().String())
+					//v, ok := readingMap[c.UUID().String()]
+					//if !ok {
+						//v = 0
+					//}
+					//fmt.Println(readingMap)
+					//readingMap[c.UUID().String()] = v * 0.8 + float32(b[8]) * 0.2
+					//fmt.Println(">ok")
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
@@ -143,6 +154,11 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 	}
 
 	time.Sleep(5 * time.Second)
+	
+	// Send data to MS
+	//for charkey, value := range readingMap {
+		//fmt.Printf("Sending %d for char %s\n", value, charkey)
+	//}
 }
 
 func onPeriphDisconnected(p gatt.Peripheral, err error) {
@@ -168,7 +184,7 @@ func main() {
 	
 	go func() {
 		// terminate after some time
-		time.Sleep(20 * time.Second)
+		time.Sleep(10 * time.Second)
 		close(done)
 	}()
 	

@@ -12,4 +12,6 @@
 *.out
 
 pkg/
-src/
+bin/
+
+src/github.com/
