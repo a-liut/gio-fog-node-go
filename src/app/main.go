@@ -5,14 +5,14 @@ import (
 	"log"
 	"strings"
 	"time"
-	"gio"
-	// "encoding/binary"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
 )
-
-var g = gio.GioDevice{}
 
 const MICROBIT_NAME = "bbc micro:bit"
 
@@ -33,6 +33,9 @@ var characteristics = []gatt.UUID {light_char_id, temperature_char_id, moisture_
 var done = make(chan struct{})
 
 var connectedPeripherals = make(map[string]bool)
+
+var watering_chan = make(chan int)
+var exit_chan = make(chan os.Signal, 1)
 
 
 func onStateChanged(d gatt.Device, s gatt.State) {
@@ -79,6 +82,8 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 	
 	fmt.Println("Connected")
 	defer p.Device().CancelConnection(p)
+	
+	var quit = make(chan struct{})
 
 	if err := p.SetMTU(500); err != nil {
 		fmt.Printf("Failed to set MTU, err: %s\n", err)
@@ -109,12 +114,21 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				continue
 			}
 			
-			if c.UUID().Equal(watering_char_id) {				
-				if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
-					fmt.Printf("Failed to write on watering characteristic: %s\n", err)
-				}
-				fmt.Println("Written on watering characteristic")
-				time.Sleep(1 * time.Second)
+			if c.UUID().Equal(watering_char_id) {
+				go func() {
+					for {
+						select {
+							case <-watering_chan:
+								if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
+									fmt.Printf("Failed to write on watering characteristic: %s\n", err)
+								}
+								fmt.Println("Written on watering characteristic")
+								time.Sleep(1 * time.Second)
+							case <-quit:
+								return
+						}
+					}
+				}()
 			}
 
 			// Subscribe the characteristic, if possible.
@@ -153,7 +167,8 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 		fmt.Println()
 	}
 
-	time.Sleep(5 * time.Second)
+	<-exit_chan
+	close(quit)
 	
 	// Send data to MS
 	//for charkey, value := range readingMap {
@@ -166,12 +181,23 @@ func onPeriphDisconnected(p gatt.Peripheral, err error) {
 	connectedPeripherals[p.ID()] = false
 }
 
+func setupServer() {
+	http.HandleFunc("/watering", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Watering request!")
+		watering_chan <- 1
+	})
+	
+	http.ListenAndServe(":3003", nil)
+}
+
 func main() {
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		log.Fatalf("Failed to open device, err: %s\n", err)
 		return
 	}
+	
+	go setupServer()
 
 	// Register handlers.
 	d.Handle(
@@ -182,10 +208,13 @@ func main() {
 
 	d.Init(onStateChanged)
 	
+	signal.Notify(exit_chan, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		// terminate after some time
-		time.Sleep(10 * time.Second)
-		close(done)
+		// terminate after some interrupt
+		select {
+			case <-exit_chan:
+				close(done)
+		}
 	}()
 	
 	<-done
