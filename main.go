@@ -119,14 +119,15 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
 					name := c.UUID().String()
-					if name == light_char_id.String() {
-						name = "light char"
-					} else if name == moisture_char_id.String() {
-						name = "moisture char"
-					} else if name == watering_char_id.String() {
-						name = "watering char"
-					} else if name == temperature_char_id.String() {
-						name = "temp_char"
+					switch name {
+						case light_char_id.String():
+							name = "light char"
+						case moisture_char_id.String():
+							name = "moisture char"
+						case temperature_char_id.String():
+							name = "temp_char"
+						case watering_char_id.String():
+							name = "watering char"
 					}
 					
 					fmt.Printf("notified: % X | %s\n", b, name)
