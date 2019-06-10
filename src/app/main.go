@@ -2,19 +2,20 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"strings"
-	"time"
-	"net/http"
+	"sync"
 	"os"
 	"os/signal"
 	"syscall"
-
+	"time"
+	"strings"
+	"errors"
+	
 	"github.com/paypal/gatt"
 	"github.com/paypal/gatt/examples/option"
 )
 
 const MICROBIT_NAME = "bbc micro:bit"
+const SCANNER_PERIOD = 10 * time.Second
 
 var light_service_id = gatt.MustParseUUID("02751625523e493b8f941765effa1b20")
 var temperature_service_id = gatt.MustParseUUID("e95d6100251d470aa062fa1922dfa9a8")
@@ -30,24 +31,25 @@ var watering_char_id = gatt.MustParseUUID("ce9e7625c44341db9cb581e567f3ba93")
 
 var characteristics = []gatt.UUID {light_char_id, temperature_char_id, moisture_char_id, watering_char_id}
 
-var done = make(chan struct{})
+var stopChan = make(chan os.Signal, 1)
 
-var connectedPeripherals = make(map[string]bool)
+type BLEDevice interface {
+	Peripheral() *gatt.Peripheral
+	OnPeripheralConnected(p gatt.Peripheral) error
+	OnPeripheralDisconnected(p gatt.Peripheral) error
+}
 
-var watering_chan = make(chan int)
-var exit_chan = make(chan os.Signal, 1)
+type SmartVase struct {
+	p *gatt.Peripheral
+	wateringChan chan bool
+}
 
+func (sv *SmartVase) Peripheral() *gatt.Peripheral {
+	return sv.p
+} 
 
-func onStateChanged(d gatt.Device, s gatt.State) {
-	fmt.Println("State:", s)
-	switch s {
-	case gatt.StatePoweredOn:
-		fmt.Println("Scanning...")
-		d.Scan([]gatt.UUID{}, false)
-		return
-	default:
-		d.StopScanning()
-	}
+func (sv *SmartVase) String() string {
+	return fmt.Sprintf("I am SmartVase %s", sv.p) 
 }
 
 func isMicrobit(p gatt.Peripheral, a *gatt.Advertisement) bool {
@@ -56,47 +58,18 @@ func isMicrobit(p gatt.Peripheral, a *gatt.Advertisement) bool {
 	return (strings.Contains(name, MICROBIT_NAME) || strings.Contains(localname, MICROBIT_NAME))
 }
 
-func isAlreadyConnected(p gatt.Peripheral) bool {
-	elem, ok := connectedPeripherals[p.ID()]
-	return ok && elem
-}
-
-func canConnect(p gatt.Peripheral, a *gatt.Advertisement) bool {
-	return !isAlreadyConnected(p) && isMicrobit(p, a)
-}
-
-func onPeriphDiscovered(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
-	if !canConnect(p, a) {
-		fmt.Printf("Skipping ID:%s, NAME:(%s)\n", p.ID(), p.Name())
-		return
-	}
-
-	fmt.Printf("\nPeripheral ID:%s, NAME:(%s)\n", p.ID(), p.Name())
-	fmt.Println("")
-
-	p.Device().Connect(p)
-}
-
-func onPeriphConnected(p gatt.Peripheral, err error) {
-	connectedPeripherals[p.ID()] = true
-	
-	fmt.Println("Connected")
-	defer p.Device().CancelConnection(p)
-	
-	var quit = make(chan struct{})
+func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral) error {
+	fmt.Println("SmartVase OnPeripheralConnected called")
 
 	if err := p.SetMTU(500); err != nil {
-		fmt.Printf("Failed to set MTU, err: %s\n", err)
+		return errors.New(fmt.Sprintf("Failed to set MTU, err: %s\n", err))
 	}
 
 	// Discovery services
 	ss, err := p.DiscoverServices(services)
 	if err != nil {
-		fmt.Printf("Failed to discover services, err: %s\n", err)
-		return
+		return errors.New(fmt.Sprintf("Failed to discover services, err: %s\n", err))
 	}
-	
-	// readingMap := make(map[string]float32)
 
 	for _, s := range ss {
 		// Discovery characteristics
@@ -118,13 +91,13 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 				go func() {
 					for {
 						select {
-							case <-watering_chan:
+							case <-sv.wateringChan:
 								if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
 									fmt.Printf("Failed to write on watering characteristic: %s\n", err)
 								}
 								fmt.Println("Written on watering characteristic")
 								time.Sleep(1 * time.Second)
-							case <-quit:
+							case <-stopChan:
 								return
 						}
 					}
@@ -146,16 +119,7 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 							name = "watering char"
 					}
 					
-					fmt.Printf("notified: % X | %s\n", b, name)
-					
-					//fmt.Printf("adding %s to readingMap\n", c.UUID().String())
-					//v, ok := readingMap[c.UUID().String()]
-					//if !ok {
-						//v = 0
-					//}
-					//fmt.Println(readingMap)
-					//readingMap[c.UUID().String()] = v * 0.8 + float32(b[8]) * 0.2
-					//fmt.Println(">ok")
+					fmt.Printf("%s - notified: % X | %s\n", p.Name(), b, name)
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
@@ -166,57 +130,179 @@ func onPeriphConnected(p gatt.Peripheral, err error) {
 		}
 		fmt.Println()
 	}
-
-	<-exit_chan
-	close(quit)
+		
+	<-stopChan
 	
-	// Send data to MS
-	//for charkey, value := range readingMap {
-		//fmt.Printf("Sending %d for char %s\n", value, charkey)
-	//}
+	return nil
 }
 
-func onPeriphDisconnected(p gatt.Peripheral, err error) {
-	fmt.Println("Disconnected")
-	connectedPeripherals[p.ID()] = false
+func (sv *SmartVase) OnPeripheralDisconnected(p gatt.Peripheral) error {
+	fmt.Println("SmartVase OnPeripheralDisconnected called")
+	return nil
 }
 
-func setupServer() {
-	http.HandleFunc("/watering", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Watering request!")
-		watering_chan <- 1
+func getSmartVase(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
+	if isMicrobit(p, a) {
+		return &SmartVase{&p, make(chan bool)}, nil
+	}
+	
+	return nil, errors.New("Not a SmartVase")
+}
+
+func getDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
+	device, err := getSmartVase(p, a)
+	if err == nil {
+		return device, nil
+	}
+	
+	return nil, errors.New(fmt.Sprintf("Device not recognised: %s", err))
+}
+
+type Transport interface {
+	Start(quit chan bool) error
+}
+
+type BLETransport struct {}
+
+func (tr *BLETransport) Start(quit chan bool) error {
+	defer close(quit)
+	
+	fmt.Println("BLE init called")
+	
+	d, err := gatt.NewDevice(option.DefaultClientOptions...)
+	if err != nil {
+		return err
+	}
+	
+	connectedPeripherals := make(map[string]BLEDevice)
+	cpMutex := &sync.Mutex{}
+	
+	// Register handlers.
+	d.Handle(
+		gatt.PeripheralDiscovered(func (p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
+			device, err := getDevice(p, a)
+			if err != nil {
+				// fmt.Printf("ERROR: %s\n", err)
+				return
+			}
+			
+			fmt.Printf("Setting device for p: %s (%s)\n", p.ID(), p.Name())
+			cpMutex.Lock()
+			if _, alreadyPresent := connectedPeripherals[p.ID()]; alreadyPresent {
+				fmt.Printf("Peripheral %s (%s) already connected\n", p.ID(), p.Name())
+				
+				cpMutex.Unlock()
+				return
+			}
+			
+			connectedPeripherals[p.ID()] = device
+			cpMutex.Unlock()
+				
+			p.Device().Connect(p)
+		}),
+		gatt.PeripheralConnected(func (p gatt.Peripheral, err error) {
+			fmt.Printf("BLE device connected: %s (%s)\n", p.ID(), p.Name())
+			
+			defer p.Device().CancelConnection(p)
+			
+			cpMutex.Lock()
+			device, ok := connectedPeripherals[p.ID()]
+			cpMutex.Unlock()
+			if ok {
+				fmt.Println("Calling OnPeripheralConnected...")
+				device.OnPeripheralConnected(p)
+			} else {
+				fmt.Printf("OnPeripheralConnected: Connected device for ID %s not found. Maybe something went wrong...\n", p.ID())
+			}
+		}),
+		gatt.PeripheralDisconnected(func (p gatt.Peripheral, err error) {
+			fmt.Printf("BLE device disconnected: %s (%s)\n", p.ID(), p.Name())
+			
+			cpMutex.Lock()
+			device, ok := connectedPeripherals[p.ID()]
+			cpMutex.Unlock()
+			if ok {
+				fmt.Println("Calling OnPeripheralDisconnected...")
+				device.OnPeripheralDisconnected(p)
+			} else {
+				fmt.Printf("PeripheralDisconnected: Connected device for ID %s not found. Maybe something went wrong...\n", p.ID())
+			}
+			
+			cpMutex.Lock()
+			delete(connectedPeripherals, p.ID())
+			cpMutex.Unlock()
+		}),
+	)
+
+	d.Init(func (d gatt.Device, s gatt.State) {
+		switch s {
+		case gatt.StatePoweredOn:
+			go func() {
+				ticker := time.NewTicker(SCANNER_PERIOD)
+				defer ticker.Stop()
+				
+				fmt.Println("Scanning...")
+				d.Scan([]gatt.UUID{}, false)
+				
+				for {
+					select {
+					case <-ticker.C:
+						d.StopScanning()
+						
+						fmt.Println("Scanning...")
+						d.Scan([]gatt.UUID{}, false)
+					case <-quit:
+						fmt.Println("Stop scanning...")
+						return
+					}
+				}
+			}()
+			
+			return
+		default:
+			d.StopScanning()
+		}
 	})
 	
-	http.ListenAndServe(":3003", nil)
+	<-stopChan
+	
+	return nil
+}
+
+func CreateBLE() *BLETransport {
+	return &BLETransport{}
+}
+
+func runTransport(t Transport, wg *sync.WaitGroup) {
+	defer wg.Done()
+	
+	quit := make(chan bool)
+	err := t.Start(quit)
+	if err != nil {
+		fmt.Printf("Failed starting Transport, err: %s\n", err)
+	}
+	
+	<-quit
 }
 
 func main() {
-	d, err := gatt.NewDevice(option.DefaultClientOptions...)
-	if err != nil {
-		log.Fatalf("Failed to open device, err: %s\n", err)
-		return
+	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+	
+	var ble Transport
+	ble = CreateBLE()
+	
+	transports := []Transport {
+		ble,
 	}
 	
-	go setupServer()
-
-	// Register handlers.
-	d.Handle(
-		gatt.PeripheralDiscovered(onPeriphDiscovered),
-		gatt.PeripheralConnected(onPeriphConnected),
-		gatt.PeripheralDisconnected(onPeriphDisconnected),
-	)
-
-	d.Init(onStateChanged)
+	var transWG sync.WaitGroup
+	transWG.Add(len(transports))
 	
-	signal.Notify(exit_chan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		// terminate after some interrupt
-		select {
-			case <-exit_chan:
-				close(done)
-		}
-	}()
+	for _, t := range transports {
+		go runTransport(t, &transWG)
+	}
 	
-	<-done
+	transWG.Wait()
+	
 	fmt.Println("Done")
 }
