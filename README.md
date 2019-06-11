@@ -3,12 +3,13 @@
 Go implementation of the Giò system fog node.
 
 It search for Gio-compliant devices and connectes to them providing a unified REST interface to let the rest of Gio system interact with devices.
+The connection is kept open until the program stops.
 
 To stop the program, send SIGINT signal. 
 
 ## Transport
 
-The framework provided is able to support multiple transports to connect to devices.
+The framework implemented is able to support multiple transports to connect to devices.
 Only the BLE transport is implemented in this moment.
 
 In order to define a new transport, just implement the Start method and add it to the list of registered transports.
@@ -32,7 +33,7 @@ Run the following commands in order to build and run the program.
 
 First of all, you need to have Go installed on your system. Actually, the code is tested using Go 1.7.3.
 Set GOPATH variable pointing to the current folder of the project, build the program and then run it.
-You need to launch the program with **sudo** because of the usage of the Bluetooth device.
+You need to launch the program with **sudo** due to the usage of the Bluetooth device.
 
 ```bash
 export GOPATH=<path to project>
@@ -51,7 +52,7 @@ docker run --rm -it --net host --privileged gio-fog-node-go:latest
 ```
 
 ## TODO
-- Split monolithic file
 - Provide REST interface to interact with currently connected devices
 - Add configuration file for devices
+- Add REST interface for remote configuration
 - Add Dockerfile for different architectures
