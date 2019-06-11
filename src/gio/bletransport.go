@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"errors"
 	"time"
-	"os"
 	"sync"
 	
 	"github.com/paypal/gatt"
@@ -15,9 +14,7 @@ const SCANNER_PERIOD = 10 * time.Second
 
 type BLETransport struct {}
 
-func (tr *BLETransport) Start(quit chan bool, stopChan chan os.Signal) error {
-	defer close(quit)
-	
+func (tr *BLETransport) Start(stopChan chan bool) error {
 	fmt.Println("BLE init called")
 	
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
@@ -33,7 +30,6 @@ func (tr *BLETransport) Start(quit chan bool, stopChan chan os.Signal) error {
 		gatt.PeripheralDiscovered(func (p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
 			device, err := getDevice(p, a)
 			if err != nil {
-				// fmt.Printf("ERROR: %s\n", err)
 				return
 			}
 			
@@ -102,7 +98,7 @@ func (tr *BLETransport) Start(quit chan bool, stopChan chan os.Signal) error {
 						
 						fmt.Println("Scanning...")
 						d.Scan([]gatt.UUID{}, false)
-					case <-quit:
+					case <-stopChan:
 						fmt.Println("Stop scanning...")
 						return
 					}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 	"time"
-	"os"
 	
 	"github.com/paypal/gatt"
 )
@@ -43,7 +42,7 @@ func (sv *SmartVase) String() string {
 	return fmt.Sprintf("I am SmartVase %s", sv.p) 
 }
 
-func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan os.Signal) error {
+func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool) error {
 	fmt.Println("SmartVase OnPeripheralConnected called")
 
 	if err := p.SetMTU(500); err != nil {
@@ -115,7 +114,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan os.S
 		}
 		fmt.Println()
 	}
-		
+	
 	<-stopChan
 	
 	return nil
