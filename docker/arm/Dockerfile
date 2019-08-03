@@ -15,7 +15,7 @@ RUN wget -O go.tar.gz https://github.com/hypriot/golang-armbuilds/releases/downl
 ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH /app
 
-ADD . /app
+ADD .. /app
 
 RUN go get github.com/paypal/gatt
 

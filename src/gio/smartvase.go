@@ -1,11 +1,11 @@
 package gio
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
-	
+
 	"github.com/paypal/gatt"
 )
 
@@ -16,17 +16,17 @@ var temperature_service_id = gatt.MustParseUUID("e95d6100251d470aa062fa1922dfa9a
 var moisture_service_id = gatt.MustParseUUID("73cd5e04d32c4345a543487435c70c48")
 var watering_service_id = gatt.MustParseUUID("ce9eafe4c44341db9cb581e567f3ba93")
 
-var services = []gatt.UUID {light_service_id, temperature_service_id, moisture_service_id, watering_service_id}
+var services = []gatt.UUID{light_service_id, temperature_service_id, moisture_service_id, watering_service_id}
 
 var light_char_id = gatt.MustParseUUID("02759250523e493b8f941765effa1b20")
 var temperature_char_id = gatt.MustParseUUID("e95d9250251d470aa062fa1922dfa9a8")
 var moisture_char_id = gatt.MustParseUUID("73cd7350d32c4345a543487435c70c48")
 var watering_char_id = gatt.MustParseUUID("ce9e7625c44341db9cb581e567f3ba93")
 
-var characteristics = []gatt.UUID {light_char_id, temperature_char_id, moisture_char_id, watering_char_id}
+var characteristics = []gatt.UUID{light_char_id, temperature_char_id, moisture_char_id, watering_char_id}
 
 type SmartVase struct {
-	p *gatt.Peripheral
+	p            *gatt.Peripheral
 	wateringChan chan bool
 }
 
@@ -39,11 +39,13 @@ func (sv *SmartVase) TriggerWatering() {
 }
 
 func (sv *SmartVase) String() string {
-	return fmt.Sprintf("I am SmartVase %s", sv.p) 
+	return fmt.Sprintf("I am SmartVase %s", sv.p)
 }
 
 func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool) error {
 	fmt.Println("SmartVase OnPeripheralConnected called")
+
+	id := p.ID()
 
 	if err := p.SetMTU(500); err != nil {
 		return errors.New(fmt.Sprintf("Failed to set MTU, err: %s\n", err))
@@ -70,19 +72,19 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 				fmt.Printf("Failed to discover descriptors, err: %s\n", err)
 				continue
 			}
-			
+
 			if c.UUID().Equal(watering_char_id) {
 				go func() {
 					for {
 						select {
-							case <-sv.wateringChan:
-								if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
-									fmt.Printf("Failed to write on watering characteristic: %s\n", err)
-								}
-								fmt.Println("Written on watering characteristic")
-								time.Sleep(1 * time.Second)
-							case <-stopChan:
-								return
+						case <-sv.wateringChan:
+							if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
+								fmt.Printf("Failed to write on watering characteristic: %s\n", err)
+							}
+							fmt.Println("Written on watering characteristic")
+							time.Sleep(1 * time.Second)
+						case <-stopChan:
+							return
 						}
 					}
 				}()
@@ -93,17 +95,29 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 				f := func(c *gatt.Characteristic, b []byte, err error) {
 					name := c.UUID().String()
 					switch name {
-						case light_char_id.String():
-							name = "light char"
-						case moisture_char_id.String():
-							name = "moisture char"
-						case temperature_char_id.String():
-							name = "temp_char"
-						case watering_char_id.String():
-							name = "watering char"
+					case light_char_id.String():
+						name = "light"
+					case moisture_char_id.String():
+						name = "moisture"
+					case temperature_char_id.String():
+						name = "temperature"
+					case watering_char_id.String():
+						name = "watering"
 					}
-					
+
 					fmt.Printf("%s - notified: % X | %s\n", p.Name(), b, name)
+
+					// Send data to ms
+					go func() {
+						fmt.Println("Sending data to DeviceService")
+						service, _ := NewDeviceService()
+
+						r := ReadingData{Name: name, Value: string(b), Unit: ""}
+						err := service.SendData(id, &r)
+						if err != nil {
+							fmt.Println(err.Error())
+						}
+					}()
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
@@ -114,9 +128,9 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 		}
 		fmt.Println()
 	}
-	
+
 	<-stopChan
-	
+
 	return nil
 }
 
