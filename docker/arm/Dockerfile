@@ -5,6 +5,7 @@ LABEL Name=gio-fog-node-go Version=0.1.0
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y build-essential \
+                            git \
 							wget && \
 							apt-get clean && \
 							rm -rf /var/lib/apt/lists/*
