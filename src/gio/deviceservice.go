@@ -34,19 +34,48 @@ type DeviceService struct {
 	url *url.URL
 }
 
+func (ds *DeviceService) register(id string, roomId string) (string, error) {
+	body := []byte(fmt.Sprintf(`{
+		"mac": "%s",
+		"name": "%s",
+		"room_id": %s
+	}`, id, "device"+id, roomId))
+
+	res, err := http.Post(fmt.Sprintf("%s/devices", ds.url), "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+
+	if res.StatusCode != 200 {
+		return "", fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
+	}
+
+	// Take the id from the response
+	var resBody struct {
+		Id   string
+		Mac  string
+		Name string
+		Room int
+	}
+
+	json.NewDecoder(res.Body).Decode(&resBody)
+
+	return resBody.Id, nil
+}
+
 func (ds *DeviceService) SendData(id string, reading *ReadingData) error {
 	body, err := json.Marshal(reading)
 	if err != nil {
 		return err
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/devices/%s/readings", ds.url, id), "application/json", bytes.NewBuffer(body))
+	res, err := http.Post(fmt.Sprintf("%s/devices/%s/readings", ds.url, id), "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
 
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("cannot perform the requested operation: (%d) %s", resp.StatusCode, resp.Status)
+	if res.StatusCode != 200 {
+		return fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
 	}
 
 	return nil
