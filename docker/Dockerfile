@@ -1,14 +1,3 @@
-#FROM golang:latest
-#
-#ADD . /usr/local/go/src/github.com/a-liut/gio-fog-node-go
-#
-#RUN go get github.com/paypal/gatt
-#
-#RUN go install gio-fog
-#
-#ENTRYPOINT ["bin/app"]
-#CMD []
-
 FROM golang:alpine AS builder
 
 ARG SRC_ROOT
