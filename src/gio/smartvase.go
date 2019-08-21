@@ -154,7 +154,7 @@ func (sv *SmartVase) OnPeripheralDisconnected(p gatt.Peripheral) error {
 func isMicrobit(p gatt.Peripheral, a *gatt.Advertisement) bool {
 	name := strings.ToLower(p.Name())
 	localname := strings.ToLower(a.LocalName)
-	return (strings.Contains(name, MICROBIT_NAME) || strings.Contains(localname, MICROBIT_NAME))
+	return strings.Contains(name, MICROBIT_NAME) || strings.Contains(localname, MICROBIT_NAME)
 }
 
 func IsSmartVase(p gatt.Peripheral, a *gatt.Advertisement) bool {

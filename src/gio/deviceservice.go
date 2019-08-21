@@ -58,7 +58,7 @@ func (ds *DeviceService) register(id string, roomId string) (string, error) {
 		Room int
 	}
 
-	json.NewDecoder(res.Body).Decode(&resBody)
+	_ = json.NewDecoder(res.Body).Decode(&resBody)
 
 	return resBody.Id, nil
 }
@@ -81,16 +81,21 @@ func (ds *DeviceService) SendData(id string, reading *ReadingData) error {
 	return nil
 }
 
-var INSTANCE *DeviceService = nil
+const (
+	serviceAddress = "192.168.99.100"
+	servicePort    = "30001"
+)
+
+var instance *DeviceService = nil
 
 func NewDeviceService() (*DeviceService, error) {
-	if INSTANCE == nil {
-		url, err := url.Parse("http://192.168.99.100:31334")
+	if instance == nil {
+		serviceUrl, err := url.Parse(fmt.Sprintf("http://%s:%s", serviceAddress, servicePort))
 		if err != nil {
 			return nil, err
 		}
-		INSTANCE = &DeviceService{url}
+		instance = &DeviceService{serviceUrl}
 	}
 
-	return INSTANCE, nil
+	return instance, nil
 }
