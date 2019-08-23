@@ -47,7 +47,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 
 	registered := true
 
-	service, _ := NewDeviceService()
+	service, _ := NewDeviceService(nil)
 	id, err := service.register(p.ID(), "1")
 	if err != nil {
 		fmt.Println("WARNING: Cannot register the device to the DeviceService")
