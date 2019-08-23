@@ -1,25 +1,27 @@
-FROM balenalib/raspberry-pi-debian:latest
+FROM golang:alpine AS builder
 
-LABEL Name=gio-fog-node-go Version=0.1.0
+WORKDIR /fognode
 
-WORKDIR /app
+# Install git for fetching dependencies
+RUN apk update && apk add --no-cache git
 
-RUN apt-get update && apt-get install -y build-essential \
-							wget && \
-							apt-get clean && \
-							rm -rf /var/lib/apt/lists/*
+COPY go.mod .
 
-RUN wget -O go.tar.gz https://github.com/hypriot/golang-armbuilds/releases/download/v1.7.3/go1.7.3.linux-armv7.tar.gz && \
-		tar -xvf go.tar.gz -C /usr/local
+RUN go mod download
 
-ENV PATH="/usr/local/go/bin:${PATH}"
-ENV GOPATH /app
+COPY . .
 
-ADD . /app
+# Build the binary.
+RUN go build -o /go/bin/fognode cmd/fognode/main.go
 
-RUN go get github.com/paypal/gatt
+## Build lighter image
+FROM alpine:latest
+LABEL Name=gio-fog-node-go Version=1.0.0
 
-RUN go install app
+# Copy our static executable.
+COPY --from=builder /go/bin/fognode /fognode
 
-ENTRYPOINT ["bin/app"]
-CMD []
+EXPOSE 8080
+
+# Run the binary.
+ENTRYPOINT /fognode
