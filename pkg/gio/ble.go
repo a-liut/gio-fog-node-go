@@ -1,7 +1,6 @@
 package gio
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -10,7 +9,15 @@ import (
 	"github.com/paypal/gatt/examples/option"
 )
 
-const SCANNER_PERIOD = 10 * time.Second
+type BLEDevice interface {
+	Peripheral() *gatt.Peripheral
+	OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool) error
+	OnPeripheralDisconnected(p gatt.Peripheral) error
+}
+
+const (
+	scannerPeriod = 10 * time.Second
+)
 
 type BLETransport struct{}
 
@@ -85,7 +92,7 @@ func (tr *BLETransport) Start(stopChan chan bool) error {
 		switch s {
 		case gatt.StatePoweredOn:
 			go func() {
-				ticker := time.NewTicker(SCANNER_PERIOD)
+				ticker := time.NewTicker(scannerPeriod)
 				defer ticker.Stop()
 
 				fmt.Println("Scanning...")
@@ -129,7 +136,7 @@ func getSmartVase(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 		return Create(p), nil
 	}
 
-	return nil, errors.New("Not a SmartVase")
+	return nil, fmt.Errorf("not a SmartVase")
 }
 
 func getDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
@@ -138,5 +145,5 @@ func getDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 		return device, nil
 	}
 
-	return nil, errors.New(fmt.Sprintf("Device not recognised: %s", err))
+	return nil, fmt.Errorf("device not recognised: %s", err)
 }

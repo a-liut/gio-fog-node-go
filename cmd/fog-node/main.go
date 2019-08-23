@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/a-liut/gio-fog-node-go/src/gio"
+	"gio-fog-node/pkg/gio"
+
 	"os"
 	"os/signal"
 	"syscall"

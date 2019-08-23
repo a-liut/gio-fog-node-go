@@ -1,7 +1,6 @@
 package gio
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 )
@@ -38,7 +37,7 @@ func (sv *DefaultTransportRunner) runTransport(t Transport, wg *sync.WaitGroup) 
 
 func (sv *DefaultTransportRunner) Run() error {
 	if sv.isRunning {
-		return errors.New("Already running")
+		return fmt.Errorf("already running")
 	}
 
 	sv.transWG.Add(len(sv.transports))

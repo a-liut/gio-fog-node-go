@@ -26,7 +26,6 @@ var wateringCharId = gatt.MustParseUUID("ce9e7625c44341db9cb581e567f3ba93")
 var characteristics = []gatt.UUID{lightCharId, temperatureCharId, moistureCharId, wateringCharId}
 
 type SmartVase struct {
-	// BLE Peripheral
 	p            *gatt.Peripheral
 	wateringChan chan bool
 }
@@ -45,6 +44,15 @@ func (sv *SmartVase) String() string {
 
 func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool) error {
 	fmt.Println("SmartVase OnPeripheralConnected called")
+
+	registered := true
+
+	service, _ := NewDeviceService()
+	id, err := service.register(p.ID(), "1")
+	if err != nil {
+		fmt.Println("WARNING: Cannot register the device to the DeviceService")
+		registered = false
+	}
 
 	if err := p.SetMTU(500); err != nil {
 		return errors.New(fmt.Sprintf("Failed to set MTU, err: %s\n", err))
@@ -105,6 +113,23 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 					}
 
 					fmt.Printf("%s - notified: % X | %s\n", p.Name(), b, name)
+
+					// Send data to ms
+					if registered {
+						go func() {
+							fmt.Println("Sending data to DeviceService")
+
+							r := ReadingData{Name: name, Value: string(b), Unit: ""}
+							err := service.SendData(id, &r)
+							if err != nil {
+								fmt.Println(err.Error())
+							} else {
+								fmt.Println("Send success!")
+							}
+						}()
+					} else {
+						fmt.Println("Skipping send data: Not registered")
+					}
 				}
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
@@ -129,7 +154,7 @@ func (sv *SmartVase) OnPeripheralDisconnected(p gatt.Peripheral) error {
 func isMicrobit(p gatt.Peripheral, a *gatt.Advertisement) bool {
 	name := strings.ToLower(p.Name())
 	localname := strings.ToLower(a.LocalName)
-	return (strings.Contains(name, microbitName) || strings.Contains(localname, microbitName))
+	return strings.Contains(name, microbitName) || strings.Contains(localname, microbitName)
 }
 
 func IsSmartVase(p gatt.Peripheral, a *gatt.Advertisement) bool {

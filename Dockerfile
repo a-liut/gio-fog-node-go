@@ -12,7 +12,7 @@ RUN go mod download
 COPY . .
 
 # Build the binary.
-RUN go build -o /go/bin/fognode cmd/fognode/main.go
+RUN go build -o /go/bin/fognode cmd/fog-node/main.go
 
 ## Build lighter image
 FROM alpine:latest
