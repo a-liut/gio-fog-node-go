@@ -1,5 +1,13 @@
 package gio
 
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/url"
+)
+
 type GioDevice struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
@@ -17,8 +25,77 @@ type Reading struct {
 	DeviceID  int         `json:"device_id"`
 }
 
-type DeviceService interface {
-	GetDevices() ([]GioDevice, error)
+type ReadingData struct {
+	Name  string `json:"name"`
+	Value string `json:"value"` // It can contains any value
+	Unit  string `json:"unit"`
+}
+type DeviceService struct {
+	url *url.URL
+}
 
-	GetReadings(deviceId int) ([]Reading, error)
+func (ds *DeviceService) register(id string, roomId string) (string, error) {
+	body := []byte(fmt.Sprintf(`{
+		"mac": "%s",
+		"name": "%s",
+		"room_id": %s
+	}`, id, "device"+id, roomId))
+
+	res, err := http.Post(fmt.Sprintf("%s/devices", ds.url), "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
+
+	if res.StatusCode != 200 {
+		return "", fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
+	}
+
+	// Take the id from the response
+	var resBody struct {
+		Id   string
+		Mac  string
+		Name string
+		Room int
+	}
+
+	_ = json.NewDecoder(res.Body).Decode(&resBody)
+
+	return resBody.Id, nil
+}
+
+func (ds *DeviceService) SendData(id string, reading *ReadingData) error {
+	body, err := json.Marshal(reading)
+	if err != nil {
+		return err
+	}
+
+	res, err := http.Post(fmt.Sprintf("%s/devices/%s/readings", ds.url, id), "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+
+	if res.StatusCode != 200 {
+		return fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
+	}
+
+	return nil
+}
+
+const (
+	serviceAddress = "192.168.99.100"
+	servicePort    = "30001"
+)
+
+var instance *DeviceService = nil
+
+func NewDeviceService() (*DeviceService, error) {
+	if instance == nil {
+		serviceUrl, err := url.Parse(fmt.Sprintf("http://%s:%s", serviceAddress, servicePort))
+		if err != nil {
+			return nil, err
+		}
+		instance = &DeviceService{serviceUrl}
+	}
+
+	return instance, nil
 }
