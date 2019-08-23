@@ -2,7 +2,7 @@
 
 Go implementation of the Giò system fog node.
 
-It search for Gio-compliant devices and connectes to them providing a unified REST interface to let the rest of Gio system interact with devices.
+It search for Gio-compliant devices and connects to them providing a unified REST interface to let the rest of Gio system interact with devices.
 The connection is kept open until the program stops.
 
 To stop the program, send SIGINT signal. 
@@ -29,30 +29,24 @@ You can either run the program directly or using Docker.
 
 ### Build and run
 
-Run the following commands in order to build and run the program.
-
-First of all, you need to have Go installed on your system. Actually, the code is tested using Go 1.7.3.
-Set GOPATH variable pointing to the current folder of the project, build the program and then run it.
-You need to launch the program with **sudo** due to the usage of the Bluetooth device.
+fognode is developed as a Go module.
+**sudo** is necessary due to the Bluetooth device usage
 
 ```bash
-export GOPATH=<path to project>
+go build -o fognode cmd/fognode/main.go
 
-go install app
-
-sudo bin/app
+./fognode
 ```
 
 ### Using Docker
 
 ```bash
-docker build --rm -f "Dockerfile" -t gio-fog-node-go:latest .
+docker build -t gio-fog-node-go:latest .
 
-docker run --rm -it --net host --privileged gio-fog-node-go:latest
+docker run -it --net host --privileged gio-fog-node-go:latest
 ```
 
 ## TODO
 - Provide REST interface to interact with currently connected devices
 - Add configuration file for devices
 - Add REST interface for remote configuration
-- Add Dockerfile for different architectures
