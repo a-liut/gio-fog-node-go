@@ -20,6 +20,7 @@ LABEL Name=gio-fog-node-go Version=1.0.0
 
 # Copy our static executable.
 COPY --from=builder /go/bin/fognode /fognode
+COPY --from=builder /fognode/config.json /config.json
 
 EXPOSE 8080
 

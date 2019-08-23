@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"gio-fog-node/pkg/config"
+	"log"
 	"net/http"
 	"net/url"
 )
@@ -81,16 +83,14 @@ func (ds *DeviceService) SendData(id string, reading *ReadingData) error {
 	return nil
 }
 
-const (
-	serviceAddress = "192.168.99.100"
-	servicePort    = "30001"
-)
-
 var instance *DeviceService = nil
 
-func NewDeviceService() (*DeviceService, error) {
+func NewDeviceService(serviceConfig *config.DeviceServiceConfig) (*DeviceService, error) {
 	if instance == nil {
-		serviceUrl, err := url.Parse(fmt.Sprintf("http://%s:%s", serviceAddress, servicePort))
+		u := fmt.Sprintf("http://%s:%d", serviceConfig.Host, serviceConfig.Port)
+		log.Printf("DeviceService URL: %s\n", u)
+
+		serviceUrl, err := url.Parse(u)
 		if err != nil {
 			return nil, err
 		}
