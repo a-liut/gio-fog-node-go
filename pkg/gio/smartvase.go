@@ -121,15 +121,19 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
 					name := c.UUID().String()
+					unit := ""
 					switch name {
 					case lightCharId.String():
-						name = "light char"
+						name = "light"
+						unit = ""
 					case moistureCharId.String():
-						name = "moisture char"
+						name = "moisture"
+						unit = ""
 					case temperatureCharId.String():
-						name = "temp_char"
+						name = "temperature"
+						unit = "C°"
 					case wateringCharId.String():
-						name = "watering char"
+						name = "watering"
 					}
 
 					fmt.Printf("%s - notified: % X | %s\n", p.Name(), b, name)
@@ -142,8 +146,11 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 							r := Reading{
 								Name:  name,
 								Value: string(b),
-								Unit:  "",
+								Unit:  unit,
 							}
+
+							fmt.Printf("<%s, %s, %s>\n", r.Name, r.Value, r.Unit)
+
 							err := service.SendData(device, &r)
 							if err != nil {
 								fmt.Println(err.Error())
