@@ -2,6 +2,7 @@ package gio
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -120,38 +121,24 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 			// Subscribe the characteristic, if possible.
 			if (c.Properties() & (gatt.CharNotify | gatt.CharIndicate)) != 0 {
 				f := func(c *gatt.Characteristic, b []byte, err error) {
-					name := c.UUID().String()
-					unit := ""
-					switch name {
-					case lightCharId.String():
-						name = "light"
-						unit = ""
-					case moistureCharId.String():
-						name = "moisture"
-						unit = ""
-					case temperatureCharId.String():
-						name = "temperature"
-						unit = "C°"
-					case wateringCharId.String():
-						name = "watering"
-					}
 
-					fmt.Printf("%s - notified: % X | %s\n", p.Name(), b, name)
+					r := parseReading(c, b)
+
+					fmt.Printf("%s - notified: %v | %s\n", p.Name(), b, c.UUID().String())
+
+					if r == nil {
+						log.Println("Skipping sending data: No value to send")
+						return
+					}
 
 					// Send data to ms
 					if registered {
 						go func() {
 							fmt.Println("Sending data to DeviceService")
 
-							r := Reading{
-								Name:  name,
-								Value: string(b),
-								Unit:  unit,
-							}
-
 							fmt.Printf("<%s, %s, %s>\n", r.Name, r.Value, r.Unit)
 
-							err := service.SendData(device, &r)
+							err := service.SendData(device, r)
 							if err != nil {
 								fmt.Println(err.Error())
 							} else {
@@ -159,9 +146,10 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 							}
 						}()
 					} else {
-						fmt.Println("Skipping send data: Not registered")
+						fmt.Println("Skipping sending data: Not registered")
 					}
 				}
+
 				if err := p.SetNotifyValue(c, f); err != nil {
 					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
 					continue
@@ -186,6 +174,41 @@ func isMicrobit(p gatt.Peripheral, a *gatt.Advertisement) bool {
 	name := strings.ToLower(p.Name())
 	localname := strings.ToLower(a.LocalName)
 	return strings.Contains(name, microbitName) || strings.Contains(localname, microbitName)
+}
+
+func parseReading(c *gatt.Characteristic, b []byte) *Reading {
+	name := c.UUID().String()
+	unit := ""
+	value := ""
+	switch name {
+	case lightCharId.String():
+		name = "light"
+		value = fmt.Sprintf("%v", b)
+		value = value[1 : len(value)-1]
+		unit = ""
+	case moistureCharId.String():
+		name = "moisture"
+		value = fmt.Sprintf("%v", b)
+		value = value[1 : len(value)-1]
+		unit = ""
+	case temperatureCharId.String():
+		name = "temperature"
+		value = fmt.Sprintf("%v", b)
+		value = value[1 : len(value)-1]
+		unit = "C°"
+	case wateringCharId.String():
+		name = "watering"
+	}
+
+	if value == "" {
+		return nil
+	}
+
+	return &Reading{
+		Name:  name,
+		Value: value,
+		Unit:  unit,
+	}
 }
 
 func IsSmartVase(p gatt.Peripheral, a *gatt.Advertisement) bool {
