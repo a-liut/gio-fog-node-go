@@ -43,17 +43,19 @@ func (ds *DeviceService) register(id string, roomName string) (*GioDevice, error
 	roomBody, _ := json.Marshal(roomData)
 
 	roomUrl := fmt.Sprintf("%s/rooms", ds.url)
-	res, err := http.Post(roomUrl, "application/json", bytes.NewBuffer(roomBody))
+	roomResponse, err := http.Post(roomUrl, "application/json", bytes.NewBuffer(roomBody))
+	defer roomResponse.Body.Close()
+
 	if err != nil {
 		return nil, err
 	}
 
-	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
+	if roomResponse.StatusCode != 200 {
+		return nil, fmt.Errorf("cannot perform the requested operation: (%d) %s", roomResponse.StatusCode, roomResponse.Status)
 	}
 
 	var room Room
-	if err := json.NewDecoder(res.Body).Decode(&room); err != nil {
+	if err := json.NewDecoder(roomResponse.Body).Decode(&room); err != nil {
 		return nil, err
 	}
 
@@ -66,18 +68,20 @@ func (ds *DeviceService) register(id string, roomName string) (*GioDevice, error
 	deviceBody, _ := json.Marshal(deviceData)
 
 	devicesUrl := fmt.Sprintf("%s/rooms/%s/devices", ds.url, room.ID)
-	res, err = http.Post(devicesUrl, "application/json", bytes.NewBuffer(deviceBody))
+	deviceResponse, err := http.Post(devicesUrl, "application/json", bytes.NewBuffer(deviceBody))
+	defer deviceResponse.Body.Close()
+
 	if err != nil {
 		return nil, err
 	}
 
-	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
+	if deviceResponse.StatusCode != 200 {
+		return nil, fmt.Errorf("cannot perform the requested operation: (%d) %s", deviceResponse.StatusCode, deviceResponse.Status)
 	}
 
 	// Take the id from the response
 	var device GioDevice
-	_ = json.NewDecoder(res.Body).Decode(&device)
+	_ = json.NewDecoder(deviceResponse.Body).Decode(&device)
 
 	return &device, nil
 }
@@ -90,6 +94,7 @@ func (ds *DeviceService) SendData(device *GioDevice, reading *Reading) error {
 
 	readingsUrl := fmt.Sprintf("%s/rooms/%s/devices/%s/readings", ds.url, device.Room, device.ID)
 	res, err := http.Post(readingsUrl, "application/json", bytes.NewBuffer(body))
+	defer res.Body.Close()
 	if err != nil {
 		return err
 	}
