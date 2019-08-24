@@ -11,67 +11,85 @@ import (
 )
 
 type GioDevice struct {
-	ID   uint   `json:"id"`
+	ID   string `json:"id,omitempty"`
 	Name string `json:"name"`
 	Mac  string `json:"mac"`
 	Room string `json:"room"`
 }
 
 type Reading struct {
-	ID        int         `json:"id"`
-	Timestamp string      `json:"timestamp"`
-	Name      string      `json:"name"`
-	Value     interface{} `json:"value"` // It can contains any value
-	Unit      string      `json:"unit"`
-	Device    GioDevice   `json:"device"`
-	DeviceID  int         `json:"device_id"`
+	ID    string      `json:"id,omitempty"`
+	Name  string      `json:"name"`
+	Value interface{} `json:"value"` // It can contains any value
+	Unit  string      `json:"unit"`
 }
 
-type ReadingData struct {
-	Name  string `json:"name"`
-	Value string `json:"value"` // It can contains any value
-	Unit  string `json:"unit"`
+type Room struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
+
 type DeviceService struct {
 	url *url.URL
 }
 
-func (ds *DeviceService) register(id string, roomId string) (string, error) {
-	body := []byte(fmt.Sprintf(`{
-		"mac": "%s",
-		"name": "%s",
-		"room_id": %s
-	}`, id, "device"+id, roomId))
+func (ds *DeviceService) register(id string, roomName string) (*GioDevice, error) {
 
-	res, err := http.Post(fmt.Sprintf("%s/devices", ds.url), "application/json", bytes.NewBuffer(body))
+	// Create the room
+	roomData := Room{
+		Name: roomName,
+	}
+
+	roomBody, _ := json.Marshal(roomData)
+
+	roomUrl := fmt.Sprintf("%s/rooms", ds.url)
+	res, err := http.Post(roomUrl, "application/json", bytes.NewBuffer(roomBody))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if res.StatusCode != 200 {
-		return "", fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
+		return nil, fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
+	}
+
+	var room Room
+	if err := json.NewDecoder(res.Body).Decode(&room); err != nil {
+		return nil, err
+	}
+
+	// Register the Device
+	deviceData := GioDevice{
+		Name: "device" + id,
+		Mac:  id,
+	}
+
+	deviceBody, _ := json.Marshal(deviceData)
+
+	devicesUrl := fmt.Sprintf("%s/rooms/%s/devices", ds.url, room.ID)
+	res, err = http.Post(devicesUrl, "application/json", bytes.NewBuffer(deviceBody))
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)
 	}
 
 	// Take the id from the response
-	var resBody struct {
-		Id   string
-		Mac  string
-		Name string
-		Room int
-	}
+	var device GioDevice
+	_ = json.NewDecoder(res.Body).Decode(&device)
 
-	_ = json.NewDecoder(res.Body).Decode(&resBody)
-
-	return resBody.Id, nil
+	return &device, nil
 }
 
-func (ds *DeviceService) SendData(id string, reading *ReadingData) error {
+func (ds *DeviceService) SendData(device *GioDevice, reading *Reading) error {
 	body, err := json.Marshal(reading)
 	if err != nil {
 		return err
 	}
 
-	res, err := http.Post(fmt.Sprintf("%s/devices/%s/readings", ds.url, id), "application/json", bytes.NewBuffer(body))
+	readingsUrl := fmt.Sprintf("%s/rooms/%s/devices/%s/readings", ds.url, device.Room, device.ID)
+	res, err := http.Post(readingsUrl, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}

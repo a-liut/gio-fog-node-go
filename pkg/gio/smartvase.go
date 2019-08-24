@@ -1,7 +1,6 @@
 package gio
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -9,7 +8,10 @@ import (
 	"github.com/paypal/gatt"
 )
 
-const microbitName = "bbc micro:bit"
+const (
+	microbitName = "bbc micro:bit"
+	roomName     = "default"
+)
 
 var lightServiceId = gatt.MustParseUUID("02751625523e493b8f941765effa1b20")
 var temperatureServiceId = gatt.MustParseUUID("e95d6100251d470aa062fa1922dfa9a8")
@@ -45,23 +47,41 @@ func (sv *SmartVase) String() string {
 func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool) error {
 	fmt.Println("SmartVase OnPeripheralConnected called")
 
-	registered := true
+	registered := false
 
 	service, _ := NewDeviceService(nil)
-	id, err := service.register(p.ID(), "1")
-	if err != nil {
-		fmt.Println("WARNING: Cannot register the device to the DeviceService")
-		registered = false
-	}
+
+	var device *GioDevice
+	go func() {
+		var err error
+		for !registered {
+
+			select {
+			case <-stopChan:
+				fmt.Println("Stop trying to register device")
+			default:
+				device, err = service.register(p.ID(), roomName)
+				if err == nil {
+					registered = true
+
+					fmt.Printf("Device %s registered with id: %s!", device.Name, device.ID)
+				} else {
+					fmt.Printf("WARNING: Cannot register the device to the DeviceService: %s\n", err)
+
+					time.Sleep(5 * time.Second)
+				}
+			}
+		}
+	}()
 
 	if err := p.SetMTU(500); err != nil {
-		return errors.New(fmt.Sprintf("Failed to set MTU, err: %s\n", err))
+		return fmt.Errorf("Failed to set MTU, err: %s\n", err)
 	}
 
 	// Discovery services
 	ss, err := p.DiscoverServices(services)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to discover services, err: %s\n", err))
+		return fmt.Errorf("Failed to discover services, err: %s\n", err)
 	}
 
 	for _, s := range ss {
@@ -119,8 +139,12 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 						go func() {
 							fmt.Println("Sending data to DeviceService")
 
-							r := ReadingData{Name: name, Value: string(b), Unit: ""}
-							err := service.SendData(id, &r)
+							r := Reading{
+								Name:  name,
+								Value: string(b),
+								Unit:  "",
+							}
+							err := service.SendData(device, &r)
 							if err != nil {
 								fmt.Println(err.Error())
 							} else {
