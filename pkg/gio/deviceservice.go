@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"gio-fog-node/pkg/config"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 )
 
 type GioDevice struct {
@@ -108,9 +108,12 @@ func (ds *DeviceService) SendData(device *GioDevice, reading *Reading) error {
 
 var instance *DeviceService = nil
 
-func NewDeviceService(serviceConfig *config.DeviceServiceConfig) (*DeviceService, error) {
+func NewDeviceService() (*DeviceService, error) {
+	serviceHost := os.Getenv("DEVICE_SERVICE_HOST")
+	servicePort := os.Getenv("DEVICE_SERVICE_PORT")
+
 	if instance == nil {
-		u := fmt.Sprintf("http://%s:%d", serviceConfig.Host, serviceConfig.Port)
+		u := fmt.Sprintf("http://%s:%s", serviceHost, servicePort)
 		log.Printf("DeviceService URL: %s\n", u)
 
 		serviceUrl, err := url.Parse(u)

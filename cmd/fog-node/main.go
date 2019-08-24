@@ -1,10 +1,7 @@
 package main
 
 import (
-	"encoding/json"
-	"flag"
 	"fmt"
-	"gio-fog-node/pkg/config"
 	"gio-fog-node/pkg/gio"
 	"os"
 	"os/signal"
@@ -14,13 +11,7 @@ import (
 var stopChan = make(chan os.Signal, 1)
 
 func main() {
-	configPath := flag.String("config", "config.json", "Configuration file")
-
-	flag.Parse()
-
-	if err := loadConfig(*configPath); err != nil {
-		panic(err)
-	}
+	checkVariables()
 
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
@@ -48,18 +39,11 @@ func main() {
 	fmt.Println("Done")
 }
 
-func loadConfig(path string) error {
-	file, _ := os.Open(path)
-	defer file.Close()
-
-	var conf config.Config
-	if err := json.NewDecoder(file).Decode(&conf); err != nil {
-		return err
+func checkVariables() {
+	if deviceServiceHost := os.Getenv("DEVICE_SERVICE_HOST"); deviceServiceHost == "" {
+		panic("DEVICE_SERVICE_HOST not set.")
 	}
-
-	if _, err := gio.NewDeviceService(conf.DeviceServiceConfig); err != nil {
-		return err
+	if deviceServicePort := os.Getenv("DEVICE_SERVICE_PORT"); deviceServicePort == "" {
+		panic("DEVICE_SERVICE_PORT not set.")
 	}
-
-	return nil
 }

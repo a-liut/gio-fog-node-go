@@ -49,7 +49,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 
 	registered := false
 
-	service, _ := NewDeviceService(nil)
+	service, _ := NewDeviceService()
 
 	var device *GioDevice
 	go func() {

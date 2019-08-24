@@ -1,6 +1,0 @@
-{
-  "device_service": {
-    "host": "gio-device-ms",
-    "port": 5001
-  }
-}
