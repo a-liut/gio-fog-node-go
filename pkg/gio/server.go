@@ -93,6 +93,7 @@ var endpoints = []Endpoint{
 					Message: "device not found",
 				}
 
+				w.WriteHeader(http.StatusNotFound)
 				err := json.NewEncoder(w).Encode(m)
 				if err != nil {
 					log.Println(err)
@@ -106,6 +107,7 @@ var endpoints = []Endpoint{
 				Message: "Done",
 			}
 			if err != nil {
+				w.WriteHeader(http.StatusBadRequest) // action not recognised
 				data.Message = err.Error()
 			}
 
