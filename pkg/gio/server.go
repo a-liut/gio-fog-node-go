@@ -76,13 +76,13 @@ var endpoints = []Endpoint{
 		Methods: []string{http.MethodGet},
 	},
 	{
-		Path: "/devices/{deviceId}/act/{actuatorName}",
+		Path: "/devices/{deviceId}/actions/{actionName}",
 		Handler: func(w http.ResponseWriter, r *http.Request) {
 			vars := mux.Vars(r)
 			deviceId := vars["deviceId"]
 			actuatorName := vars["actuatorName"]
 
-			log.Printf("Requested device %s actuation for %s\n", deviceId, actuatorName)
+			log.Printf("Requested device %s action for %s\n", deviceId, actuatorName)
 
 			d := transport.GetDeviceByID(deviceId)
 			if d == nil {

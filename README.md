@@ -115,7 +115,7 @@ The REST API is exposed by default on the port 5003. Used port can be overridden
       }
     ```
 
-- POST /devices/{deviceId}/act/{actuatorName}: trigger an action on the selected device
+- POST /devices/{deviceId}/actions/{actionName}: trigger an action on the selected device
 
     Example response:
     
