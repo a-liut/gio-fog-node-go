@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"gio-fog-node/pkg/gio"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,7 +25,7 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("Runner started")
+	log.Println("Runner started")
 
 	<-stopChan
 
@@ -34,9 +34,9 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("Runner stopped")
+	log.Println("Runner stopped")
 
-	fmt.Println("Done")
+	log.Println("Done")
 }
 
 func checkVariables() {

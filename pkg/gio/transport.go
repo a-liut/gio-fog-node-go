@@ -2,11 +2,12 @@ package gio
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
 type Transport interface {
-	Start(stopChan chan bool) error
+	Start(stopChan chan struct{}) error
 }
 
 type TransportRunner interface {
@@ -19,7 +20,7 @@ type DefaultTransportRunner struct {
 	transports []Transport
 	isRunning  bool
 	transWG    sync.WaitGroup
-	stopChan   chan bool
+	stopChan   chan struct{}
 }
 
 func (sv *DefaultTransportRunner) Add(t Transport) {
@@ -31,7 +32,7 @@ func (sv *DefaultTransportRunner) runTransport(t Transport, wg *sync.WaitGroup) 
 
 	err := t.Start(sv.stopChan)
 	if err != nil {
-		fmt.Printf("Failed starting Transport, err: %s\n", err)
+		log.Printf("Failed starting Transport, err: %s\n", err)
 	}
 }
 
@@ -56,5 +57,5 @@ func (sv *DefaultTransportRunner) Stop() error {
 }
 
 func NewDefaultTransportRunner() TransportRunner {
-	return &DefaultTransportRunner{make([]Transport, 0, 1), false, sync.WaitGroup{}, make(chan bool, 1)}
+	return &DefaultTransportRunner{make([]Transport, 0, 1), false, sync.WaitGroup{}, make(chan struct{}, 1)}
 }

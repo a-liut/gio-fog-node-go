@@ -44,11 +44,12 @@ func (ds *DeviceService) register(id string, roomName string) (*GioDevice, error
 
 	roomUrl := fmt.Sprintf("%s/rooms", ds.url)
 	roomResponse, err := http.Post(roomUrl, "application/json", bytes.NewBuffer(roomBody))
-	defer roomResponse.Body.Close()
 
 	if err != nil {
 		return nil, err
 	}
+
+	defer roomResponse.Body.Close()
 
 	if roomResponse.StatusCode != 200 {
 		return nil, fmt.Errorf("cannot perform the requested operation: (%d) %s", roomResponse.StatusCode, roomResponse.Status)
@@ -69,11 +70,12 @@ func (ds *DeviceService) register(id string, roomName string) (*GioDevice, error
 
 	devicesUrl := fmt.Sprintf("%s/rooms/%s/devices", ds.url, room.ID)
 	deviceResponse, err := http.Post(devicesUrl, "application/json", bytes.NewBuffer(deviceBody))
-	defer deviceResponse.Body.Close()
 
 	if err != nil {
 		return nil, err
 	}
+
+	defer deviceResponse.Body.Close()
 
 	if deviceResponse.StatusCode != 200 {
 		return nil, fmt.Errorf("cannot perform the requested operation: (%d) %s", deviceResponse.StatusCode, deviceResponse.Status)
@@ -94,10 +96,12 @@ func (ds *DeviceService) SendData(device *GioDevice, reading *Reading) error {
 
 	readingsUrl := fmt.Sprintf("%s/rooms/%s/devices/%s/readings", ds.url, device.Room, device.ID)
 	res, err := http.Post(readingsUrl, "application/json", bytes.NewBuffer(body))
-	defer res.Body.Close()
+
 	if err != nil {
 		return err
 	}
+
+	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
 		return fmt.Errorf("cannot perform the requested operation: (%d) %s", res.StatusCode, res.Status)

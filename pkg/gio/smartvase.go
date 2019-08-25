@@ -45,8 +45,8 @@ func (sv *SmartVase) String() string {
 	return fmt.Sprintf("I am SmartVase %s", sv.p)
 }
 
-func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool) error {
-	fmt.Println("SmartVase OnPeripheralConnected called")
+func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan struct{}) error {
+	log.Println("SmartVase OnPeripheralConnected called")
 
 	registered := false
 
@@ -59,15 +59,15 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 
 			select {
 			case <-stopChan:
-				fmt.Println("Stop trying to register device")
+				log.Println("Stop trying to register device")
 			default:
 				device, err = service.register(p.ID(), roomName)
 				if err == nil {
 					registered = true
 
-					fmt.Printf("Device %s registered with id: %s!", device.Name, device.ID)
+					log.Printf("Device %s registered with id: %s!", device.Name, device.ID)
 				} else {
-					fmt.Printf("WARNING: Cannot register the device to the DeviceService: %s\n", err)
+					log.Printf("WARNING: Cannot register the device to the DeviceService: %s\n", err)
 
 					time.Sleep(5 * time.Second)
 				}
@@ -89,7 +89,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 		// Discovery characteristics
 		cs, err := p.DiscoverCharacteristics(characteristics, s)
 		if err != nil {
-			fmt.Printf("Failed to discover characteristics, err: %s\n", err)
+			log.Printf("Failed to discover characteristics, err: %s\n", err)
 			continue
 		}
 
@@ -97,7 +97,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 			// Discovery descriptors
 			_, err := p.DiscoverDescriptors(nil, c)
 			if err != nil {
-				fmt.Printf("Failed to discover descriptors, err: %s\n", err)
+				log.Printf("Failed to discover descriptors, err: %s\n", err)
 				continue
 			}
 
@@ -107,9 +107,9 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 						select {
 						case <-sv.wateringChan:
 							if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
-								fmt.Printf("Failed to write on watering characteristic: %s\n", err)
+								log.Printf("Failed to write on watering characteristic: %s\n", err)
 							}
-							fmt.Println("Written on watering characteristic")
+							log.Println("Written on watering characteristic")
 							time.Sleep(1 * time.Second)
 						case <-stopChan:
 							return
@@ -124,7 +124,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 
 					r := parseReading(c, b)
 
-					fmt.Printf("%s - notified: %v | %s\n", p.Name(), b, c.UUID().String())
+					log.Printf("%s - notified: %v | %s\n", p.Name(), b, c.UUID().String())
 
 					if r == nil {
 						log.Println("Skipping sending data: No value to send")
@@ -134,30 +134,30 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 					// Send data to ms
 					if registered {
 						go func() {
-							fmt.Println("Sending data to DeviceService")
+							log.Println("Sending data to DeviceService")
 
-							fmt.Printf("<%s, %s, %s>\n", r.Name, r.Value, r.Unit)
+							log.Printf("<%s, %s, %s>\n", r.Name, r.Value, r.Unit)
 
 							err := service.SendData(device, r)
 							if err != nil {
-								fmt.Println(err.Error())
+								log.Println(err.Error())
 							} else {
-								fmt.Println("Send success!")
+								log.Println("Send success!")
 							}
 						}()
 					} else {
-						fmt.Println("Skipping sending data: Not registered")
+						log.Println("Skipping sending data: Not registered")
 					}
 				}
 
 				if err := p.SetNotifyValue(c, f); err != nil {
-					fmt.Printf("Failed to subscribe characteristic, err: %s\n", err)
+					log.Printf("Failed to subscribe characteristic, err: %s\n", err)
 					continue
 				}
 			}
 
 		}
-		fmt.Println()
+		log.Println()
 	}
 
 	<-stopChan
@@ -166,7 +166,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool
 }
 
 func (sv *SmartVase) OnPeripheralDisconnected(p gatt.Peripheral) error {
-	fmt.Println("SmartVase OnPeripheralDisconnected called")
+	log.Println("SmartVase OnPeripheralDisconnected called")
 	return nil
 }
 

@@ -2,6 +2,7 @@ package gio
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 
 type BLEDevice interface {
 	Peripheral() *gatt.Peripheral
-	OnPeripheralConnected(p gatt.Peripheral, stopChan chan bool) error
+	OnPeripheralConnected(p gatt.Peripheral, stopChan chan struct{}) error
 	OnPeripheralDisconnected(p gatt.Peripheral) error
 }
 
@@ -19,72 +20,57 @@ const (
 	scannerPeriod = 10 * time.Second
 )
 
-type BLETransport struct{}
+type BLETransport struct {
+	connectedPeripherals map[string]BLEDevice
+	cpMutex              *sync.Mutex
+}
 
-func (tr *BLETransport) Start(stopChan chan bool) error {
-	fmt.Println("BLE init called")
+func (tr *BLETransport) Start(stopChan chan struct{}) error {
+	log.Println("BLE init called")
 
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		return err
 	}
 
-	connectedPeripherals := make(map[string]BLEDevice)
-	cpMutex := &sync.Mutex{}
-
 	// Register handlers.
 	d.Handle(
 		gatt.PeripheralDiscovered(func(p gatt.Peripheral, a *gatt.Advertisement, rssi int) {
-			device, err := getDevice(p, a)
+			device, err := newDevice(p, a)
 			if err != nil {
 				return
 			}
 
-			fmt.Printf("Setting device for p: %s (%s)\n", p.ID(), p.Name())
-			cpMutex.Lock()
-			if _, alreadyPresent := connectedPeripherals[p.ID()]; alreadyPresent {
-				fmt.Printf("Peripheral %s (%s) already connected\n", p.ID(), p.Name())
-
-				cpMutex.Unlock()
-				return
-			}
-
-			connectedPeripherals[p.ID()] = device
-			cpMutex.Unlock()
+			log.Printf("Setting device for p: %s (%s)\n", p.ID(), p.Name())
+			tr.addPeripheral(p, device)
 
 			p.Device().Connect(p)
 		}),
 		gatt.PeripheralConnected(func(p gatt.Peripheral, err error) {
-			fmt.Printf("BLE device connected: %s (%s)\n", p.ID(), p.Name())
+			log.Printf("BLE device connected: %s (%s)\n", p.ID(), p.Name())
 
 			defer p.Device().CancelConnection(p)
 
-			cpMutex.Lock()
-			device, ok := connectedPeripherals[p.ID()]
-			cpMutex.Unlock()
-			if ok {
-				fmt.Println("Calling OnPeripheralConnected...")
+			device := tr.getDevice(p)
+			if device != nil {
+				log.Println("Calling OnPeripheralConnected...")
 				device.OnPeripheralConnected(p, stopChan)
 			} else {
-				fmt.Printf("OnPeripheralConnected: Connected device for ID %s not found. Maybe something went wrong...\n", p.ID())
+				log.Printf("OnPeripheralConnected: Connected device for ID %s not found. Maybe something went wrong...\n", p.ID())
 			}
 		}),
 		gatt.PeripheralDisconnected(func(p gatt.Peripheral, err error) {
-			fmt.Printf("BLE device disconnected: %s (%s)\n", p.ID(), p.Name())
+			log.Printf("BLE device disconnected: %s (%s)\n", p.ID(), p.Name())
 
-			cpMutex.Lock()
-			device, ok := connectedPeripherals[p.ID()]
-			cpMutex.Unlock()
-			if ok {
-				fmt.Println("Calling OnPeripheralDisconnected...")
+			device := tr.getDevice(p)
+			if device != nil {
+				log.Println("Calling OnPeripheralDisconnected...")
 				device.OnPeripheralDisconnected(p)
 			} else {
-				fmt.Printf("PeripheralDisconnected: Connected device for ID %s not found. Maybe something went wrong...\n", p.ID())
+				log.Printf("PeripheralDisconnected: Connected device for ID %s not found. Maybe something went wrong...\n", p.ID())
 			}
 
-			cpMutex.Lock()
-			delete(connectedPeripherals, p.ID())
-			cpMutex.Unlock()
+			tr.removePeripheral(p)
 		}),
 	)
 
@@ -95,7 +81,7 @@ func (tr *BLETransport) Start(stopChan chan bool) error {
 				ticker := time.NewTicker(scannerPeriod)
 				defer ticker.Stop()
 
-				fmt.Println("Scanning...")
+				log.Println("Scanning...")
 				d.Scan([]gatt.UUID{}, false)
 
 				for {
@@ -103,10 +89,10 @@ func (tr *BLETransport) Start(stopChan chan bool) error {
 					case <-ticker.C:
 						d.StopScanning()
 
-						fmt.Println("Scanning...")
+						log.Println("Scanning...")
 						d.Scan([]gatt.UUID{}, false)
 					case <-stopChan:
-						fmt.Println("Stop scanning...")
+						log.Println("Stop scanning...")
 						return
 					}
 				}
@@ -127,8 +113,39 @@ func (tr *BLETransport) String() string {
 	return "<BLETransport>"
 }
 
+func (tr *BLETransport) addPeripheral(p gatt.Peripheral, device BLEDevice) {
+	tr.cpMutex.Lock()
+	defer tr.cpMutex.Unlock()
+
+	if _, alreadyPresent := tr.connectedPeripherals[p.ID()]; alreadyPresent {
+		log.Printf("Peripheral %s (%s) already connected\n", p.ID(), p.Name())
+
+		return
+	}
+
+	tr.connectedPeripherals[p.ID()] = device
+}
+
+func (tr *BLETransport) removePeripheral(p gatt.Peripheral) {
+	tr.cpMutex.Lock()
+	defer tr.cpMutex.Unlock()
+
+	delete(tr.connectedPeripherals, p.ID())
+}
+
+func (tr *BLETransport) getDevice(p gatt.Peripheral) BLEDevice {
+	tr.cpMutex.Lock()
+	defer tr.cpMutex.Unlock()
+
+	d, _ := tr.connectedPeripherals[p.ID()]
+	return d
+}
+
 func CreateBLETransport() *BLETransport {
-	return &BLETransport{}
+	return &BLETransport{
+		connectedPeripherals: make(map[string]BLEDevice),
+		cpMutex:              &sync.Mutex{},
+	}
 }
 
 func getSmartVase(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
@@ -139,7 +156,7 @@ func getSmartVase(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 	return nil, fmt.Errorf("not a SmartVase")
 }
 
-func getDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
+func newDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 	device, err := getSmartVase(p, a)
 	if err == nil {
 		return device, nil
