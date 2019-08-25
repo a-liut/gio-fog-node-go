@@ -50,7 +50,7 @@ docker build -t gio-fog-node-go:latest .
 docker run -it --net host --privileged gio-fog-node-go:latest
 ```
 
-## REST interface
+## REST API
 
 The software exposes a REST API that allows clients to interact with connected devices getting data and triggerable actions.
 The REST API is exposed by default on the port 5003. Used port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
@@ -120,14 +120,18 @@ The REST API is exposed by default on the port 5003. Used port can be overridden
     Example response:
     
     - Successful response
-        ```json
-        {"message":"Done"}
-        ```
+      ```json
+      {
+        "message": "Done"
+      }
+      ```
     - Action not available
-        ```json
-        {"message":"action not recognized: asd"}
-        ```
-
+      ```json
+      {
+        "message":"action not recognized: test"
+      }
+      ```
+      
 ## TODO
 - Modularize BLE devices
 - Add configuration file for devices
