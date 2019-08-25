@@ -82,7 +82,7 @@ var smartVaseCharacteristics = []BLECharacteristic{
 var services []gatt.UUID
 var characteristics []gatt.UUID
 
-var wateringCharUUID *gatt.UUID
+var wateringChar *BLECharacteristic
 
 func init() {
 	characteristics = make([]gatt.UUID, len(smartVaseCharacteristics))
@@ -90,7 +90,7 @@ func init() {
 		characteristics[i] = c.UUID
 
 		if c.Name == "watering" {
-			wateringCharUUID = &characteristics[i]
+			wateringChar = &c
 		}
 	}
 
@@ -170,7 +170,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan stru
 				continue
 			}
 
-			if c.UUID().Equal(*wateringCharUUID) {
+			if c.UUID().Equal(wateringChar.UUID) {
 				go func() {
 					for {
 						select {
@@ -268,6 +268,16 @@ func Create(p gatt.Peripheral) *SmartVase {
 
 func (sv *SmartVase) AvailableCharacteristics() []BLECharacteristic {
 	return smartVaseCharacteristics
+}
+
+func (sv *SmartVase) TriggerActuator(actuatorName string) error {
+	switch actuatorName {
+	case wateringChar.Name:
+		sv.TriggerWatering()
+		return nil
+	default:
+		return fmt.Errorf("action not recognized: %s", actuatorName)
+	}
 }
 
 func (sv *SmartVase) MarshalJSON() ([]byte, error) {
