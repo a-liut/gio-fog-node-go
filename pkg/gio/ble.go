@@ -1,6 +1,7 @@
 package gio
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -14,6 +15,41 @@ type BLEDevice interface {
 	Peripheral() *gatt.Peripheral
 	OnPeripheralConnected(p gatt.Peripheral, stopChan chan struct{}) error
 	OnPeripheralDisconnected(p gatt.Peripheral) error
+
+	AvailableCharacteristics() []BLECharacteristic
+}
+
+type BLEService struct {
+	UUID gatt.UUID `json:"uuid"`
+	Name string    `json:"name"`
+}
+
+func (bles BLEService) String() string {
+	return bles.UUID.String()
+}
+
+type BLECharacteristic struct {
+	UUID       gatt.UUID               `json:"uuid"`
+	Name       string                  `json:"name"`
+	GetReading func(b []byte) *Reading `json:"-"`
+}
+
+func (blec *BLECharacteristic) MarshalJSON() ([]byte, error) {
+	type Alias BLECharacteristic
+
+	return json.Marshal(&struct {
+		UUID string `json:"uuid"`
+		Name string `json:"name"`
+		*Alias
+	}{
+		UUID:  blec.UUID.String(),
+		Name:  blec.Name,
+		Alias: (*Alias)(blec),
+	})
+}
+
+func (blec BLECharacteristic) String() string {
+	return blec.UUID.String()
 }
 
 const (
@@ -134,18 +170,7 @@ func (tr *BLETransport) removePeripheral(p gatt.Peripheral) {
 }
 
 func (tr *BLETransport) getDevice(p gatt.Peripheral) BLEDevice {
-	tr.cpMutex.Lock()
-	defer tr.cpMutex.Unlock()
-
-	d, _ := tr.connectedPeripherals[p.ID()]
-	return d
-}
-
-func CreateBLETransport() *BLETransport {
-	return &BLETransport{
-		connectedPeripherals: make(map[string]BLEDevice),
-		cpMutex:              &sync.Mutex{},
-	}
+	return tr.GetDeviceByID(p.ID())
 }
 
 func getSmartVase(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
@@ -163,4 +188,34 @@ func newDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 	}
 
 	return nil, fmt.Errorf("device not recognised: %s", err)
+}
+
+func CreateBLETransport() *BLETransport {
+	return &BLETransport{
+		connectedPeripherals: make(map[string]BLEDevice),
+		cpMutex:              &sync.Mutex{},
+	}
+}
+
+func (tr *BLETransport) GetDevices() []BLEDevice {
+	tr.cpMutex.Lock()
+	defer tr.cpMutex.Unlock()
+
+	res := make([]BLEDevice, len(tr.connectedPeripherals))
+
+	i := 0
+	for _, d := range tr.connectedPeripherals {
+		res[i] = d
+		i++
+	}
+
+	return res
+}
+
+func (tr *BLETransport) GetDeviceByID(id string) BLEDevice {
+	tr.cpMutex.Lock()
+	defer tr.cpMutex.Unlock()
+
+	d, _ := tr.connectedPeripherals[id]
+	return d
 }

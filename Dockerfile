@@ -21,7 +21,10 @@ LABEL Name=gio-fog-node-go Version=1.0.0
 # Copy our static executable.
 COPY --from=builder /go/bin/fognode /fognode
 
+ARG SERVER_PORT
+
 EXPOSE 8080
+EXPOSE $SERVER_PORT
 
 # Run the binary.
 ENTRYPOINT /fognode

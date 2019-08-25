@@ -33,7 +33,7 @@ type DeviceService struct {
 	url *url.URL
 }
 
-func (ds *DeviceService) register(id string, roomName string) (*GioDevice, error) {
+func (ds *DeviceService) Register(id string, roomName string) (*GioDevice, error) {
 
 	// Create the room
 	roomData := Room{

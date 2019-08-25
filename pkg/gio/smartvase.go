@@ -1,6 +1,7 @@
 package gio
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -14,19 +15,90 @@ const (
 	roomName     = "default"
 )
 
-var lightServiceId = gatt.MustParseUUID("02751625523e493b8f941765effa1b20")
-var temperatureServiceId = gatt.MustParseUUID("e95d6100251d470aa062fa1922dfa9a8")
-var moistureServiceId = gatt.MustParseUUID("73cd5e04d32c4345a543487435c70c48")
-var wateringServiceId = gatt.MustParseUUID("ce9eafe4c44341db9cb581e567f3ba93")
+var smartVaseServices = []BLEService{
+	{
+		UUID: gatt.MustParseUUID("02751625523e493b8f941765effa1b20"),
+		Name: "light",
+	},
+	{
+		UUID: gatt.MustParseUUID("e95d6100251d470aa062fa1922dfa9a8"),
+		Name: "temperature",
+	},
+	{
+		UUID: gatt.MustParseUUID("73cd5e04d32c4345a543487435c70c48"),
+		Name: "moisture",
+	},
+	{
+		UUID: gatt.MustParseUUID("ce9eafe4c44341db9cb581e567f3ba93"),
+		Name: "watering",
+	},
+}
 
-var services = []gatt.UUID{lightServiceId, temperatureServiceId, moistureServiceId, wateringServiceId}
+var smartVaseCharacteristics = []BLECharacteristic{
+	{
+		UUID: gatt.MustParseUUID("02759250523e493b8f941765effa1b20"),
+		Name: "light",
+		GetReading: func(b []byte) *Reading {
+			return &Reading{
+				Name:  "light",
+				Value: fmt.Sprintf("%v", b),
+				Unit:  "",
+			}
+		},
+	},
+	{
+		UUID: gatt.MustParseUUID("e95d9250251d470aa062fa1922dfa9a8"),
+		Name: "temperature",
+		GetReading: func(b []byte) *Reading {
+			v := fmt.Sprintf("%v", b)
+			return &Reading{
+				Name:  "temperature",
+				Value: v[1 : len(v)-1],
+				Unit:  "C°",
+			}
+		},
+	},
+	{
+		UUID: gatt.MustParseUUID("73cd7350d32c4345a543487435c70c48"),
+		Name: "moisture",
+		GetReading: func(b []byte) *Reading {
+			v := fmt.Sprintf("%v", b)
+			return &Reading{
+				Name:  "moisture",
+				Value: v[1 : len(v)-1],
+				Unit:  "",
+			}
+		},
+	},
+	{
+		UUID: gatt.MustParseUUID("ce9e7625c44341db9cb581e567f3ba93"),
+		Name: "watering",
+		GetReading: func(b []byte) *Reading {
+			return nil
+		},
+	},
+}
 
-var lightCharId = gatt.MustParseUUID("02759250523e493b8f941765effa1b20")
-var temperatureCharId = gatt.MustParseUUID("e95d9250251d470aa062fa1922dfa9a8")
-var moistureCharId = gatt.MustParseUUID("73cd7350d32c4345a543487435c70c48")
-var wateringCharId = gatt.MustParseUUID("ce9e7625c44341db9cb581e567f3ba93")
+var services []gatt.UUID
+var characteristics []gatt.UUID
 
-var characteristics = []gatt.UUID{lightCharId, temperatureCharId, moistureCharId, wateringCharId}
+var wateringCharUUID *gatt.UUID
+
+func init() {
+	characteristics = make([]gatt.UUID, len(smartVaseCharacteristics))
+	for i, c := range smartVaseCharacteristics {
+		characteristics[i] = c.UUID
+
+		if c.Name == "watering" {
+			wateringCharUUID = &characteristics[i]
+		}
+	}
+
+	services = make([]gatt.UUID, len(smartVaseServices))
+	for i, s := range smartVaseServices {
+		services[i] = s.UUID
+	}
+}
 
 type SmartVase struct {
 	p            *gatt.Peripheral
@@ -39,10 +111,6 @@ func (sv *SmartVase) Peripheral() *gatt.Peripheral {
 
 func (sv *SmartVase) TriggerWatering() {
 	sv.wateringChan <- true
-}
-
-func (sv *SmartVase) String() string {
-	return fmt.Sprintf("I am SmartVase %s", sv.p)
 }
 
 func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan struct{}) error {
@@ -61,7 +129,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan stru
 			case <-stopChan:
 				log.Println("Stop trying to register device")
 			default:
-				device, err = service.register(p.ID(), roomName)
+				device, err = service.Register(p.ID(), roomName)
 				if err == nil {
 					registered = true
 
@@ -87,6 +155,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan stru
 
 	for _, s := range ss {
 		// Discovery characteristics
+
 		cs, err := p.DiscoverCharacteristics(characteristics, s)
 		if err != nil {
 			log.Printf("Failed to discover characteristics, err: %s\n", err)
@@ -101,7 +170,7 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan stru
 				continue
 			}
 
-			if c.UUID().Equal(wateringCharId) {
+			if c.UUID().Equal(*wateringCharUUID) {
 				go func() {
 					for {
 						select {
@@ -177,38 +246,13 @@ func isMicrobit(p gatt.Peripheral, a *gatt.Advertisement) bool {
 }
 
 func parseReading(c *gatt.Characteristic, b []byte) *Reading {
-	name := c.UUID().String()
-	unit := ""
-	value := ""
-	switch name {
-	case lightCharId.String():
-		name = "light"
-		value = fmt.Sprintf("%v", b)
-		value = value[1 : len(value)-1]
-		unit = ""
-	case moistureCharId.String():
-		name = "moisture"
-		value = fmt.Sprintf("%v", b)
-		value = value[1 : len(value)-1]
-		unit = ""
-	case temperatureCharId.String():
-		name = "temperature"
-		value = fmt.Sprintf("%v", b)
-		value = value[1 : len(value)-1]
-		unit = "C°"
-	case wateringCharId.String():
-		name = "watering"
+	for _, char := range smartVaseCharacteristics {
+		if c.UUID().Equal(char.UUID) {
+			return char.GetReading(b)
+		}
 	}
 
-	if value == "" {
-		return nil
-	}
-
-	return &Reading{
-		Name:  name,
-		Value: value,
-		Unit:  unit,
-	}
+	return nil
 }
 
 func IsSmartVase(p gatt.Peripheral, a *gatt.Advertisement) bool {
@@ -216,5 +260,28 @@ func IsSmartVase(p gatt.Peripheral, a *gatt.Advertisement) bool {
 }
 
 func Create(p gatt.Peripheral) *SmartVase {
-	return &SmartVase{&p, make(chan bool)}
+	return &SmartVase{
+		p:            &p,
+		wateringChan: make(chan bool),
+	}
+}
+
+func (sv *SmartVase) AvailableCharacteristics() []BLECharacteristic {
+	return smartVaseCharacteristics
+}
+
+func (sv *SmartVase) MarshalJSON() ([]byte, error) {
+	type Alias SmartVase
+
+	return json.Marshal(&struct {
+		ID              string              `json:"id"`
+		Name            string              `json:"name"`
+		Characteristics []BLECharacteristic `json:"characteristics"`
+		*Alias
+	}{
+		ID:              (*sv.Peripheral()).ID(),
+		Name:            (*sv.Peripheral()).Name(),
+		Characteristics: sv.AvailableCharacteristics(),
+		Alias:           (*Alias)(sv),
+	})
 }
