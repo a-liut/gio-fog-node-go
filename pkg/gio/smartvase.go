@@ -270,13 +270,13 @@ func (sv *SmartVase) AvailableCharacteristics() []BLECharacteristic {
 	return smartVaseCharacteristics
 }
 
-func (sv *SmartVase) TriggerActuator(actuatorName string) error {
-	switch actuatorName {
+func (sv *SmartVase) TriggerAction(actionName string) error {
+	switch actionName {
 	case wateringChar.Name:
 		sv.TriggerWatering()
 		return nil
 	default:
-		return fmt.Errorf("action not recognized: %s", actuatorName)
+		return fmt.Errorf("action not recognized: %s", actionName)
 	}
 }
 

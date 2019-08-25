@@ -80,9 +80,9 @@ var endpoints = []Endpoint{
 		Handler: func(w http.ResponseWriter, r *http.Request) {
 			vars := mux.Vars(r)
 			deviceId := vars["deviceId"]
-			actuatorName := vars["actuatorName"]
+			actionName := vars["actionName"]
 
-			log.Printf("Requested device %s action for %s\n", deviceId, actuatorName)
+			log.Printf("Requested device %s action for %s\n", deviceId, actionName)
 
 			d := transport.GetDeviceByID(deviceId)
 			if d == nil {
@@ -100,7 +100,7 @@ var endpoints = []Endpoint{
 				return
 			}
 
-			err := d.TriggerActuator(actuatorName)
+			err := d.TriggerAction(actionName)
 
 			data := &ApiResponse{
 				Message: "Done",
