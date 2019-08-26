@@ -11,6 +11,14 @@ import (
 var stopChan = make(chan os.Signal, 1)
 
 func main() {
+	if err := os.Setenv("DEVICE_SERVICE_HOST", "device_service"); err != nil {
+		panic(err)
+	}
+
+	if err := os.Setenv("DEVICE_SERVICE_PORT", "5001"); err != nil {
+		panic(err)
+	}
+
 	checkVariables()
 
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
