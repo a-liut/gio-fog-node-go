@@ -39,9 +39,10 @@ var smartVaseCharacteristics = []BLECharacteristic{
 		UUID: gatt.MustParseUUID("02759250523e493b8f941765effa1b20"),
 		Name: "light",
 		GetReading: func(b []byte) *Reading {
+			v := fmt.Sprintf("%v", b)
 			return &Reading{
 				Name:  "light",
-				Value: fmt.Sprintf("%v", b),
+				Value: v[1 : len(v)-1],
 				Unit:  "",
 			}
 		},
