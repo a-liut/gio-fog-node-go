@@ -2,7 +2,7 @@
 
 Go implementation of the Giò Plant fog node.
 
-It search for Giò-compliant devices and connects to them providing a unified REST interface to let the rest of Giò Plant platform interact with devices.
+It searches for Giò-compliant devices and connects to them providing a unified REST interface to let the rest of Giò Plant platform interact with devices.
 The connection is kept open until the program stops.
 
 To stop the program, send SIGINT signal. 
@@ -26,6 +26,7 @@ Thus, specialization of this interface must be used in order to handle more devi
 
 A BLEDevice stores a set of *Services* and *Characteristics* used to read published values produced by the connected device.
 Furthermore, it specifies also *actions* that used to trigger defined behaviors of a device.
+Actions names corresponds to BLE Characteristics UUID.
 
 ## Run
 
@@ -33,8 +34,8 @@ You can either run the program directly or using Docker.
 
 ### Build and run
 
-fognode is developed as a Go module.
-**sudo** is necessary due to the Bluetooth device usage
+fog-node is developed as a Go module.
+WARNING: **sudo** is necessary due to the Bluetooth device usage.
 
 ```bash
 go build -o fognode cmd/fognode/main.go
@@ -52,8 +53,9 @@ docker run -it --net host --privileged gio-fog-node-go:latest
 
 ## REST API
 
-The software exposes a REST API that allows clients to interact with connected devices getting data and triggerable actions.
-The REST API is exposed by default on the port 5003. Used port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
+The software exposes a REST API that allows clients to interact with connected devices getting data and available actions.
+The REST API is exposed by default on the port 5003.
+Port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
 
 - GET /devices: fetch all connected devices
 

@@ -30,9 +30,10 @@ func (bles BLEService) String() string {
 }
 
 type BLECharacteristic struct {
-	UUID       gatt.UUID               `json:"uuid"`
-	Name       string                  `json:"name"`
-	GetReading func(b []byte) *Reading `json:"-"`
+	UUID           gatt.UUID               `json:"uuid"`
+	Name           string                  `json:"name"`
+	GetReading     func(b []byte) *Reading `json:"-"`
+	Characteristic *gatt.Characteristic    `json:"-"`
 }
 
 func (blec *BLECharacteristic) MarshalJSON() ([]byte, error) {
@@ -199,16 +200,16 @@ func (tr *BLETransport) getDeviceConnection(p gatt.Peripheral) *BLEConnection {
 	return &d
 }
 
-func getSmartVase(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
-	if IsSmartVase(p, a) {
+func getBLEDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
+	if IsEnabledDevice(p, a) {
 		return Create(p), nil
 	}
 
-	return nil, fmt.Errorf("not a SmartVase")
+	return nil, fmt.Errorf("not a GenericBLEDevice")
 }
 
 func newDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
-	device, err := getSmartVase(p, a)
+	device, err := getBLEDevice(p, a)
 	if err == nil {
 		return device, nil
 	}
