@@ -123,14 +123,13 @@ func (sv *SmartVase) OnPeripheralConnected(p gatt.Peripheral, stopChan chan stru
 
 	var device *GioDevice
 	go func() {
-		var err error
 		for !registered {
-
 			select {
 			case <-stopChan:
 				log.Println("Stop trying to register device")
+				return
 			default:
-				device, err = service.Register(p.ID(), roomName)
+				device, err := service.Register(p.ID(), roomName)
 				if err == nil {
 					registered = true
 
