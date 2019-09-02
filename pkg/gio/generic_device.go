@@ -12,7 +12,6 @@ import (
 
 const (
 	microbitName = "bbc micro:bit"
-	roomName     = "default"
 )
 
 type Action struct {
@@ -33,8 +32,6 @@ func (sv *GenericBLEDevice) Peripheral() *gatt.Peripheral {
 
 func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan chan struct{}) error {
 	log.Println("GenericBLEDevice OnPeripheralConnected called")
-
-	registered := false
 
 	if err := p.SetMTU(500); err != nil {
 		return fmt.Errorf("Failed to set MTU, err: %s\n", err)
@@ -110,17 +107,13 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 					}
 
 					// Send data to ms
-					if registered {
-						go func() {
-							log.Println("Sending data to DeviceService")
+					go func() {
+						log.Println("Sending data to DeviceService")
 
-							log.Printf("<%s, %s, %s>\n", r.Name, r.Value, r.Unit)
+						log.Printf("<%s, %s, %s>\n", r.Name, r.Value, r.Unit)
 
-							transport.OnReadingProduced(p, *r)
-						}()
-					} else {
-						log.Println("Skipping sending data: Not registered")
-					}
+						transport.OnReadingProduced(p, *r)
+					}()
 				}
 
 				if err := p.SetNotifyValue(c, f); err != nil {
