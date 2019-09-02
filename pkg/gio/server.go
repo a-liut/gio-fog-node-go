@@ -93,8 +93,6 @@ var endpoints = []Endpoint{
 					_ = transport.RemoveCallback(callbackUUID)
 					return
 				}
-
-				log.Printf("Callback at %s called successfully", data.Url)
 			})
 
 			m := ApiResponse{
@@ -126,8 +124,6 @@ var endpoints = []Endpoint{
 		// List all connected devices
 		Path: "/devices",
 		Handler: func(w http.ResponseWriter, r *http.Request) {
-			log.Println("Requested device list")
-
 			devices := transport.GetDevices()
 
 			log.Printf("Devices: %v\n", devices)
@@ -145,8 +141,6 @@ var endpoints = []Endpoint{
 		Handler: func(w http.ResponseWriter, r *http.Request) {
 			vars := mux.Vars(r)
 			deviceId := vars["deviceId"]
-
-			log.Printf("Requested device %s information\n", deviceId)
 
 			d := transport.GetDeviceByID(deviceId)
 			if d == nil {
@@ -200,6 +194,8 @@ var endpoints = []Endpoint{
 				return
 			}
 
+			log.Printf("Device found: %s\n", d)
+
 			err := d.TriggerAction(actionName)
 
 			data := &ApiResponse{
@@ -211,6 +207,8 @@ var endpoints = []Endpoint{
 				data.Code = http.StatusBadRequest
 				data.Message = err.Error()
 			}
+
+			log.Printf("Answer: (%d) %s", data.Code, data.Message)
 
 			w.WriteHeader(data.Code)
 
