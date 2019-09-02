@@ -23,7 +23,8 @@ type Endpoint struct {
 }
 
 type ApiResponse struct {
-	Message string `json:"message"`
+	Code    int    `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 type CallbackData struct {
@@ -48,9 +49,11 @@ var endpoints = []Endpoint{
 			err := json.NewDecoder(r.Body).Decode(&data)
 			if err != nil {
 				// Bad Request
-				w.WriteHeader(http.StatusBadRequest)
+				code := http.StatusBadRequest
+				w.WriteHeader(code)
 
 				m := &ApiResponse{
+					Code:    code,
 					Message: "invalid data",
 				}
 
@@ -73,6 +76,7 @@ var endpoints = []Endpoint{
 				body, err := json.Marshal(d)
 				if err != nil {
 					log.Printf("error encoding reading data: %s", err)
+
 					return
 				}
 
@@ -91,18 +95,18 @@ var endpoints = []Endpoint{
 				}
 
 				log.Printf("Callback at %s called successfully", data.Url)
-
-				m := ApiResponse{
-					Message: callbackUUID,
-				}
-
-				// Send back the UUID
-				w.WriteHeader(http.StatusOK)
-				err = json.NewEncoder(w).Encode(m)
-				if err != nil {
-					log.Println(err)
-				}
 			})
+
+			m := ApiResponse{
+				Message: callbackUUID,
+			}
+
+			// Send back the UUID
+			w.WriteHeader(http.StatusOK)
+			err = json.NewEncoder(w).Encode(m)
+			if err != nil {
+				log.Println(err)
+			}
 		},
 	},
 	{
