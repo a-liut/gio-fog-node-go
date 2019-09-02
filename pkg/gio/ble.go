@@ -69,11 +69,13 @@ func (conn *BLEConnection) Close() {
 	close(conn.connectionChannel)
 }
 
+type Callback func(p gatt.Peripheral, reading Reading)
+
 type BLETransport struct {
 	connectedPeripherals map[string]BLEConnection
 	cpMutex              *sync.Mutex
 
-	callbacks map[string]func(p gatt.Peripheral, reading Reading)
+	callbacks map[string]Callback
 }
 
 func (tr *BLETransport) Start(stopChan chan struct{}) error {
@@ -223,6 +225,7 @@ func CreateBLETransport() *BLETransport {
 	return &BLETransport{
 		connectedPeripherals: make(map[string]BLEConnection),
 		cpMutex:              &sync.Mutex{},
+		callbacks:            make(map[string]Callback),
 	}
 }
 
@@ -258,7 +261,7 @@ func (tr *BLETransport) OnReadingProduced(peripheral gatt.Peripheral, r Reading)
 	}()
 }
 
-func (tr *BLETransport) AddCallback(id string, fun func(p gatt.Peripheral, reading Reading)) error {
+func (tr *BLETransport) AddCallback(id string, fun Callback) error {
 	tr.callbacks[id] = fun
 	return nil
 }

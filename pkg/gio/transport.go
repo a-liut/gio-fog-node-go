@@ -11,7 +11,7 @@ type Transport interface {
 	Start(stopChan chan struct{}) error
 
 	OnReadingProduced(peripheral gatt.Peripheral, r Reading)
-	AddCallback(id string, fun func(p gatt.Peripheral, reading Reading)) error
+	AddCallback(id string, fun Callback) error
 	RemoveCallback(id string) error
 }
 
