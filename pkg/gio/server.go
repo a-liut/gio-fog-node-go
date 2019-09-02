@@ -230,6 +230,9 @@ func RunServer(t *BLETransport) {
 	if port == "" {
 		port = serverDefaultPort
 	}
+
+	log.Printf("FogNode REST interface started on port %s", port)
+
 	port = fmt.Sprintf(":%s", port)
 
 	log.Println(http.ListenAndServe(port, r))
