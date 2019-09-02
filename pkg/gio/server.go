@@ -1,9 +1,12 @@
 package gio
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/paypal/gatt"
 	"log"
 	"net/http"
 	"os"
@@ -23,9 +26,98 @@ type ApiResponse struct {
 	Message string `json:"message"`
 }
 
+type CallbackData struct {
+	Url string `json:"url"`
+}
+
+type CallbackResponseData struct {
+	PeripheralID string  `json:"peripheral_id"`
+	Reading      Reading `json:"reading"`
+}
+
 // Transport to be used
 var transport *BLETransport
 var endpoints = []Endpoint{
+	{
+		// Register a new callback for providing data
+		Path:    "/callbacks",
+		Methods: []string{http.MethodPost},
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+
+			var data CallbackData
+			err := json.NewDecoder(r.Body).Decode(&data)
+			if err != nil {
+				// Bad Request
+				w.WriteHeader(http.StatusBadRequest)
+
+				m := &ApiResponse{
+					Message: "invalid data",
+				}
+
+				err := json.NewEncoder(w).Encode(m)
+				if err != nil {
+					log.Println(err)
+				}
+				return
+			}
+
+			callbackUUID := uuid.New().String()
+
+			_ = transport.AddCallback(callbackUUID, func(peripheral gatt.Peripheral, reading Reading) {
+
+				d := CallbackResponseData{
+					PeripheralID: peripheral.ID(),
+					Reading:      reading,
+				}
+
+				body, err := json.Marshal(d)
+				if err != nil {
+					log.Printf("error encoding reading data: %s", err)
+					return
+				}
+
+				resp, err := http.Post(data.Url, "application/json", bytes.NewBuffer(body))
+				if err != nil {
+					log.Printf("error calling callback: %s", err)
+					return
+				}
+
+				if resp.StatusCode != http.StatusOK {
+					log.Printf("Callback result unsuccessful: %d\n", resp.StatusCode)
+
+					// Remove unsuccessful callback
+					_ = transport.RemoveCallback(callbackUUID)
+					return
+				}
+
+				log.Printf("Callback at %s called successfully", data.Url)
+
+				m := ApiResponse{
+					Message: callbackUUID,
+				}
+
+				// Send back the UUID
+				w.WriteHeader(http.StatusOK)
+				err = json.NewEncoder(w).Encode(m)
+				if err != nil {
+					log.Println(err)
+				}
+			})
+		},
+	},
+	{
+		// Removes a callback
+		Path:    "/callbacks/{callbackUuid}",
+		Methods: []string{http.MethodDelete},
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			vars := mux.Vars(r)
+			callbackUuid := vars["callbackUuid"]
+
+			_ = transport.RemoveCallback(callbackUuid)
+
+			w.WriteHeader(http.StatusOK)
+		},
+	},
 	{
 		// List all connected devices
 		Path: "/devices",

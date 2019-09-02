@@ -1,13 +1,16 @@
 # gio-fog-node-go
 
-Go implementation of the Giò Plant fog node.
+The Gò Plants FogNode searches for Giò-compliant devices and connects to them providing a unified REST interface to let the rest of Giò Plant platform interact with devices.
+The connection is kept open until the program stops or the device disconnects.
 
-It searches for Giò-compliant devices and connects to them providing a unified REST interface to let the rest of Giò Plant platform interact with devices.
-The connection is kept open until the program stops.
+To stop the program, send SIGINT signal.
 
-To stop the program, send SIGINT signal. 
+## How does it work
 
-## Transport
+The tools starts by scanning for BLE devices. When a new SmartVase is found, it connects to it and starts to receive data.
+Data are then forwarded to registered callbacks if any. 
+
+### Transport
 
 The framework implemented is able to support multiple transports to connect to devices.
 Only the BLE transport is implemented in this moment.
@@ -15,11 +18,11 @@ Only the BLE transport is implemented in this moment.
 In order to define a new transport, just implement the Start method and add it to the list of registered transports.
 The framework will take care of its execution.
 
-### BLE Transport
+#### BLE Transport
 
 Transport implementation that allow the software to interact with BLE Gio-compliant devices.
 
-#### BLEDevice 
+##### BLEDevice 
 BLEDevice is a representation for a device that is handled by the system.
 The system is able to select the right interface and functions in order to handle several devices.
 Thus, specialization of this interface must be used in order to handle more devices.
@@ -30,14 +33,22 @@ Actions names corresponds to BLE Characteristics UUID.
 
 ## Run
 
+The service requires two environment variable to successfully start:
+
+- DEVICE_SERVICE_HOST: specifies the host in which the gio-device-ms service is running
+- DEVICE_SERVICE_PORT: specifies the port in which the gio-device-ms service is running
+
 You can either run the program directly or using Docker.
 
 ### Build and run
 
-fog-node is developed as a Go module.
+`fog-node` is developed as a Go module.
 WARNING: **sudo** is necessary due to the Bluetooth device usage.
 
 ```bash
+export DEVICE_SERVICE_HOST=localhost
+export DEVICE_SERVICE_PORT=5001
+
 go build -o fognode cmd/fognode/main.go
 
 ./fognode

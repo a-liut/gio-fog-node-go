@@ -36,31 +36,6 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 
 	registered := false
 
-	service, _ := NewDeviceService()
-
-	var device *GioDevice
-	go func() {
-		var err error
-		for !registered {
-			select {
-			case <-stopChan:
-				log.Println("Stop trying to register device")
-				return
-			default:
-				device, err = service.Register(p.ID(), roomName)
-				if err == nil {
-					registered = true
-
-					log.Printf("Device %s registered with id: %s!", device.Name, device.ID)
-				} else {
-					log.Printf("WARNING: Cannot register the device to the DeviceService: %s\n", err)
-
-					time.Sleep(5 * time.Second)
-				}
-			}
-		}
-	}()
-
 	if err := p.SetMTU(500); err != nil {
 		return fmt.Errorf("Failed to set MTU, err: %s\n", err)
 	}
@@ -141,12 +116,7 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 
 							log.Printf("<%s, %s, %s>\n", r.Name, r.Value, r.Unit)
 
-							err := service.SendData(device, r)
-							if err != nil {
-								log.Println(err.Error())
-							} else {
-								log.Println("Send success!")
-							}
+							transport.OnReadingProduced(p, *r)
 						}()
 					} else {
 						log.Println("Skipping sending data: Not registered")

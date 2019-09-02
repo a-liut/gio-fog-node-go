@@ -2,12 +2,17 @@ package gio
 
 import (
 	"fmt"
+	"github.com/paypal/gatt"
 	"log"
 	"sync"
 )
 
 type Transport interface {
 	Start(stopChan chan struct{}) error
+
+	OnReadingProduced(peripheral gatt.Peripheral, r Reading)
+	AddCallback(id string, fun func(p gatt.Peripheral, reading Reading)) error
+	RemoveCallback(id string) error
 }
 
 type TransportRunner interface {
