@@ -151,9 +151,11 @@ var endpoints = []Endpoint{
 			d := transport.GetDeviceByID(deviceId)
 			if d == nil {
 				// Not found
-				w.WriteHeader(http.StatusNotFound)
+				code := http.StatusNotFound
+				w.WriteHeader(code)
 
 				m := &ApiResponse{
+					Code:    code,
 					Message: "device not found",
 				}
 
@@ -183,13 +185,14 @@ var endpoints = []Endpoint{
 			d := transport.GetDeviceByID(deviceId)
 			if d == nil {
 				// Not found
-				w.WriteHeader(http.StatusNotFound)
+				code := http.StatusNotFound
+				w.WriteHeader(code)
 
 				m := &ApiResponse{
+					Code:    code,
 					Message: "device not found",
 				}
 
-				w.WriteHeader(http.StatusNotFound)
 				err := json.NewEncoder(w).Encode(m)
 				if err != nil {
 					log.Println(err)
@@ -200,16 +203,18 @@ var endpoints = []Endpoint{
 			err := d.TriggerAction(actionName)
 
 			data := &ApiResponse{
+				Code:    http.StatusOK,
 				Message: "Done",
 			}
 			if err != nil {
-				w.WriteHeader(http.StatusBadRequest) // action not recognised
+				// action not recognised
+				data.Code = http.StatusBadRequest
 				data.Message = err.Error()
 			}
 
-			body, _ := json.Marshal(data)
+			w.WriteHeader(data.Code)
 
-			_, err = fmt.Fprintf(w, string(body))
+			err = json.NewEncoder(w).Encode(data)
 			if err != nil {
 				log.Println(err)
 			}
