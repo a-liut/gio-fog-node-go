@@ -174,7 +174,7 @@ var endpoints = []Endpoint{
 			deviceId := vars["deviceId"]
 			actionName := vars["actionName"]
 
-			log.Printf("Requested device %s action for %s\n", deviceId, actionName)
+			log.Printf("Requested device %s action for %s\n", actionName, deviceId)
 
 			d := transport.GetDeviceByID(deviceId)
 			if d == nil {
