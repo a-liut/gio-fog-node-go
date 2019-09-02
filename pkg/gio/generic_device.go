@@ -74,12 +74,13 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 			// Register action listener only if characteristic is writable
 			if (c.Properties() & (gatt.CharWrite | gatt.CharWriteNR)) != 0 {
 				go func() {
-					log.Printf("Start action listener for characteristic %s\n", c.UUID())
+					log.Printf("Start action listener for characteristic %s\n", c.UUID().String())
 					for {
 						select {
 						case <-stopChan:
 							return
 						case action := <-sv.actionChannel:
+							log.Printf("Action requested: %s. Action UUID: %s", action.Name, c.UUID().String())
 							if c.UUID().String() == action.Name {
 								// try write on the characteristic
 								if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
@@ -158,7 +159,7 @@ func IsEnabledDevice(p gatt.Peripheral, a *gatt.Advertisement) bool {
 func Create(p gatt.Peripheral) *GenericBLEDevice {
 	return &GenericBLEDevice{
 		p:             &p,
-		actionChannel: make(chan Action),
+		actionChannel: make(chan Action, 1),
 	}
 }
 
@@ -167,6 +168,7 @@ func (sv *GenericBLEDevice) AvailableCharacteristics() []BLECharacteristic {
 }
 
 func (sv *GenericBLEDevice) TriggerAction(actionName string) error {
+	log.Printf("Triggering %s\n", actionName)
 	sv.actionChannel <- Action{Name: actionName}
 	return nil
 }
