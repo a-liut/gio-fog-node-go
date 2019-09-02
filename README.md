@@ -35,8 +35,8 @@ Actions names corresponds to BLE Characteristics UUID.
 
 The service requires two environment variable to successfully start:
 
-- DEVICE_SERVICE_HOST: specifies the host in which the gio-device-ms service is running
-- DEVICE_SERVICE_PORT: specifies the port in which the gio-device-ms service is running
+- DEVICE_DRIVER_HOST: specifies the host in which the gio-device-ms service is running
+- DEVICE_DRIVER_PORT: specifies the port in which the gio-device-ms service is running
 
 You can either run the program directly or using Docker.
 
@@ -46,8 +46,8 @@ You can either run the program directly or using Docker.
 WARNING: **sudo** is necessary due to the Bluetooth device usage.
 
 ```bash
-export DEVICE_SERVICE_HOST=localhost
-export DEVICE_SERVICE_PORT=5001
+export DEVICE_DRIVER_HOST=localhost
+export DEVICE_DRIVER_PORT=5001
 
 go build -o fognode cmd/fognode/main.go
 

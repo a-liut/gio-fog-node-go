@@ -42,10 +42,10 @@ func main() {
 }
 
 func checkVariables() {
-	if deviceServiceHost := os.Getenv("DEVICE_SERVICE_HOST"); deviceServiceHost == "" {
-		panic("DEVICE_SERVICE_HOST not set.")
+	if deviceServiceHost := os.Getenv("DEVICE_DRIVER_HOST"); deviceServiceHost == "" {
+		panic("DEVICE_DRIVER_HOST not set.")
 	}
-	if deviceServicePort := os.Getenv("DEVICE_SERVICE_PORT"); deviceServicePort == "" {
-		panic("DEVICE_SERVICE_PORT not set.")
+	if deviceServicePort := os.Getenv("DEVICE_DRIVER_PORT"); deviceServicePort == "" {
+		panic("DEVICE_DRIVER_PORT not set.")
 	}
 }
