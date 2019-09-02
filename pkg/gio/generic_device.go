@@ -19,8 +19,8 @@ type Action struct {
 }
 
 type GenericBLEDevice struct {
-	p             *gatt.Peripheral
-	actionChannel chan Action
+	p              *gatt.Peripheral
+	actionChannels map[string]chan Action
 
 	Services        []BLEService
 	Characteristics []BLECharacteristic
@@ -71,6 +71,8 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 				GetReading: nil,
 			})
 
+			sv.actionChannels[c.UUID().String()] = make(chan Action, 1)
+
 			// Register action listener only if characteristic is writable
 			if (c.Properties() & (gatt.CharWrite | gatt.CharWriteNR)) != 0 {
 				go func() {
@@ -79,7 +81,7 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 						select {
 						case <-stopChan:
 							return
-						case action := <-sv.actionChannel:
+						case action := <-sv.actionChannels[c.UUID().String()]:
 							log.Printf("Action requested: %s. Action UUID: %s", action.Name, c.UUID().String())
 							if c.UUID().String() == action.Name {
 								// try write on the characteristic
@@ -130,6 +132,11 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 
 	<-stopChan
 
+	// close action channels
+	for _, channel := range sv.actionChannels {
+		close(channel)
+	}
+
 	return nil
 }
 
@@ -158,8 +165,8 @@ func IsEnabledDevice(p gatt.Peripheral, a *gatt.Advertisement) bool {
 
 func Create(p gatt.Peripheral) *GenericBLEDevice {
 	return &GenericBLEDevice{
-		p:             &p,
-		actionChannel: make(chan Action, 1),
+		p:              &p,
+		actionChannels: make(map[string]chan Action),
 	}
 }
 
@@ -169,7 +176,13 @@ func (sv *GenericBLEDevice) AvailableCharacteristics() []BLECharacteristic {
 
 func (sv *GenericBLEDevice) TriggerAction(actionName string) error {
 	log.Printf("Triggering %s\n", actionName)
-	sv.actionChannel <- Action{Name: actionName}
+	channel, exists := sv.actionChannels[actionName]
+	if !exists {
+		return fmt.Errorf("action %s not recognised", actionName)
+	}
+
+	channel <- Action{Name: actionName}
+
 	return nil
 }
 
