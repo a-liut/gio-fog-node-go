@@ -1,6 +1,6 @@
 # gio-fog-node-go
 
-The Gò Plants FogNode searches for Giò-compliant devices and connects to them providing a unified REST interface to let the rest of Giò Plant platform interact with devices.
+The Gò Plants Fog Node searches for Giò-compliant devices and connects to them providing a unified REST interface to let the rest of Giò Plant platform interact with devices.
 The connection is kept open until the program stops or the device disconnects.
 
 To stop the program, send SIGINT signal.
@@ -22,8 +22,11 @@ The framework will take care of its execution.
 
 Transport implementation that allow the software to interact with BLE Gio-compliant devices.
 
+It provides a notification mechanism that allows remote clients to be notified when a new reading is produced by a device.
+The client register its *webhook* url and when a new Reading is produced, Fog Node makes a POST http call providing information about the device who produced the reading and the reading itself.
+
 ##### BLEDevice 
-BLEDevice is a representation for a device that is handled by the system.
+BLEDevice is a representation for a device that can be handled by the system.
 The system is able to select the right interface and functions in order to handle several devices.
 Thus, specialization of this interface must be used in order to handle more devices.
 
@@ -37,7 +40,7 @@ You can either by building and running the program directly or by using Docker.
 
 ### Build and run
 
-`fog-node` is developed as a Go module.
+Fog Node is developed as a Go module.
 WARNING: **sudo** is necessary due to the Bluetooth device usage.
 
 ```bash
@@ -59,6 +62,34 @@ docker run -it --net host --privileged gio-fog-node-go:latest
 The software exposes a REST API that allows clients to interact with connected devices getting data and available actions.
 The REST API is exposed by default on the port 5003.
 Port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
+
+- POST /callbacks: creates a new callback for data notification.
+
+    Example body:
+  ```json
+  {
+  "url": "http://callbackpath:1234"
+  }
+  ```
+  
+  Example response:
+  ```json
+  {
+  "code": 200,
+  "message": "Done"
+  }
+  ```
+    
+    
+- DELETE /callbacks/{callbackUUID}: delete a callback given its UUID
+
+  Example response:
+  ```json
+  {
+  "code": 200,
+  "message": "Done"
+  }
+  ```
 
 - GET /devices: fetch all connected devices
 
@@ -127,6 +158,7 @@ Port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
     - Successful response
       ```json
       {
+        "code": 200,
         "message": "Done"
       }
       ```
