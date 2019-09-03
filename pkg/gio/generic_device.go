@@ -102,18 +102,14 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 
 					r := parseReading(c, b)
 
-					log.Printf("%s - notified: %v | %s\n", p.Name(), b, c.UUID().String())
-
 					if r == nil {
-						log.Println("Skipping sending data: No value to send")
+						log.Println("Skipping data notification: No value to send")
 						return
 					}
 
-					// Send data to ms
+					// Notify data creation
 					go func() {
-						log.Println("Sending data to DeviceService")
-
-						log.Printf("<%s, %s, %s>\n", r.Name, r.Value, r.Unit)
+						log.Printf("Reading produced: %s", r)
 
 						transport.OnReadingProduced(p, *r)
 					}()
@@ -152,18 +148,14 @@ func isMicrobit(p gatt.Peripheral, a *gatt.Advertisement) bool {
 }
 
 func parseReading(c *gatt.Characteristic, b []byte) *Reading {
-	return &Reading{
-		Name:  c.UUID().String(),
-		Value: fmt.Sprintf("%v", b),
-		Unit:  "",
-	}
+	return NewReading(c.UUID().String(), fmt.Sprintf("%v", b), "")
 }
 
 func IsEnabledDevice(p gatt.Peripheral, a *gatt.Advertisement) bool {
 	return isMicrobit(p, a)
 }
 
-func Create(p gatt.Peripheral) *GenericBLEDevice {
+func NewGenericBLEDevice(p gatt.Peripheral) *GenericBLEDevice {
 	return &GenericBLEDevice{
 		p:              &p,
 		actionChannels: make(map[string]chan Action),

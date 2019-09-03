@@ -206,7 +206,7 @@ func (tr *BLETransport) getDeviceConnection(p gatt.Peripheral) *BLEConnection {
 
 func getBLEDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 	if IsEnabledDevice(p, a) {
-		return Create(p), nil
+		return NewGenericBLEDevice(p), nil
 	}
 
 	return nil, fmt.Errorf("not a GenericBLEDevice")
