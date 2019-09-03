@@ -11,8 +11,6 @@ import (
 var stopChan = make(chan os.Signal, 1)
 
 func main() {
-	checkVariables()
-
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
 
 	var ble gio.Transport
@@ -39,13 +37,4 @@ func main() {
 	log.Println("Runner stopped")
 
 	log.Println("Done")
-}
-
-func checkVariables() {
-	if deviceServiceHost := os.Getenv("DEVICE_DRIVER_HOST"); deviceServiceHost == "" {
-		panic("DEVICE_DRIVER_HOST not set.")
-	}
-	if deviceServicePort := os.Getenv("DEVICE_DRIVER_PORT"); deviceServicePort == "" {
-		panic("DEVICE_DRIVER_PORT not set.")
-	}
 }
