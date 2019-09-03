@@ -254,6 +254,10 @@ func (tr *BLETransport) GetDeviceByID(id string) BLEDevice {
 
 func (tr *BLETransport) OnReadingProduced(peripheral gatt.Peripheral, r Reading) {
 	go func() {
+		if len(tr.callbacks) == 0 {
+			fmt.Println("WARNING: No callbacks to call!")
+		}
+
 		// Call registered callbacks
 		for _, f := range tr.callbacks {
 			f(peripheral, r)
