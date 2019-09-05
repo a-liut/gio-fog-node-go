@@ -80,6 +80,7 @@ var endpoints = []Endpoint{
 					return
 				}
 
+				log.Printf("Calling callback %s\n", data.Url)
 				resp, err := http.Post(data.Url, "application/json", bytes.NewBuffer(body))
 				if err != nil {
 					log.Printf("error calling callback: %s", err)
