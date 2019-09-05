@@ -87,7 +87,7 @@ var endpoints = []Endpoint{
 				}
 
 				if resp.StatusCode != http.StatusOK {
-					log.Printf("Callback result unsuccessful: %d\n", resp.StatusCode)
+					log.Printf("Callback result unsuccessful: (%d) %s\n", resp.StatusCode, resp.Status)
 				}
 			})
 
