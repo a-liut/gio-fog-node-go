@@ -88,10 +88,6 @@ var endpoints = []Endpoint{
 
 				if resp.StatusCode != http.StatusOK {
 					log.Printf("Callback result unsuccessful: %d\n", resp.StatusCode)
-
-					// Remove unsuccessful callback
-					_ = transport.RemoveCallback(callbackUUID)
-					return
 				}
 			})
 
