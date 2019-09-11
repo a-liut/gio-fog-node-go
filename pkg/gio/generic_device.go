@@ -108,11 +108,8 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 					}
 
 					// Notify data creation
-					go func() {
-						log.Printf("Reading produced: %s", r)
-
-						transport.OnReadingProduced(p, *r)
-					}()
+					log.Printf("Reading produced: %s", r)
+					go transport.OnReadingProduced(p, *r)
 				}
 
 				if err := p.SetNotifyValue(c, f); err != nil {

@@ -3,6 +3,7 @@ package gio
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"log"
 	"sync"
 	"time"
@@ -69,13 +70,19 @@ func (conn *BLEConnection) Close() {
 	close(conn.connectionChannel)
 }
 
-type Callback func(p gatt.Peripheral, reading Reading)
+type Callback func(p gatt.Peripheral, reading Reading) error
+
+type CallbackMeta struct {
+	ID  string
+	fun Callback
+}
 
 type BLETransport struct {
 	connectedPeripherals map[string]BLEConnection
-	cpMutex              *sync.Mutex
+	peripheralsMutex     *sync.Mutex
 
-	callbacks map[string]Callback
+	callbacks      map[string]CallbackMeta
+	callbacksMutex *sync.Mutex
 }
 
 func (tr *BLETransport) Start(stopChan chan struct{}) error {
@@ -174,8 +181,8 @@ func (tr *BLETransport) String() string {
 }
 
 func (tr *BLETransport) addPeripheral(p gatt.Peripheral, device BLEDevice) {
-	tr.cpMutex.Lock()
-	defer tr.cpMutex.Unlock()
+	tr.peripheralsMutex.Lock()
+	defer tr.peripheralsMutex.Unlock()
 
 	if _, alreadyPresent := tr.connectedPeripherals[p.ID()]; alreadyPresent {
 		log.Printf("Peripheral %s (%s) already connected\n", p.ID(), p.Name())
@@ -190,15 +197,15 @@ func (tr *BLETransport) addPeripheral(p gatt.Peripheral, device BLEDevice) {
 }
 
 func (tr *BLETransport) removePeripheral(p gatt.Peripheral) {
-	tr.cpMutex.Lock()
-	defer tr.cpMutex.Unlock()
+	tr.peripheralsMutex.Lock()
+	defer tr.peripheralsMutex.Unlock()
 
 	delete(tr.connectedPeripherals, p.ID())
 }
 
 func (tr *BLETransport) getDeviceConnection(p gatt.Peripheral) *BLEConnection {
-	tr.cpMutex.Lock()
-	defer tr.cpMutex.Unlock()
+	tr.peripheralsMutex.Lock()
+	defer tr.peripheralsMutex.Unlock()
 
 	d, _ := tr.connectedPeripherals[p.ID()]
 	return &d
@@ -224,14 +231,16 @@ func newDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 func CreateBLETransport() *BLETransport {
 	return &BLETransport{
 		connectedPeripherals: make(map[string]BLEConnection),
-		cpMutex:              &sync.Mutex{},
-		callbacks:            make(map[string]Callback),
+		peripheralsMutex:     &sync.Mutex{},
+		callbacks:            make(map[string]CallbackMeta),
+		callbacksMutex:       &sync.Mutex{},
 	}
 }
 
+// Returns all connected BLE devices
 func (tr *BLETransport) GetDevices() []BLEDevice {
-	tr.cpMutex.Lock()
-	defer tr.cpMutex.Unlock()
+	tr.peripheralsMutex.Lock()
+	defer tr.peripheralsMutex.Unlock()
 
 	res := make([]BLEDevice, len(tr.connectedPeripherals))
 
@@ -244,33 +253,75 @@ func (tr *BLETransport) GetDevices() []BLEDevice {
 	return res
 }
 
+// Returns a BLE device with a specific ID
 func (tr *BLETransport) GetDeviceByID(id string) BLEDevice {
-	tr.cpMutex.Lock()
-	defer tr.cpMutex.Unlock()
+	tr.peripheralsMutex.Lock()
+	defer tr.peripheralsMutex.Unlock()
 
 	d, _ := tr.connectedPeripherals[id]
 	return d.Device
 }
 
+// Calls each registered callback when a new reading is produced. If a callback reports an error,
+// the callback is removed.
 func (tr *BLETransport) OnReadingProduced(peripheral gatt.Peripheral, r Reading) {
-	go func() {
-		if len(tr.callbacks) == 0 {
-			fmt.Println("WARNING: No callbacks to call!")
-		}
+	tr.callbacksMutex.Lock()
+	defer tr.callbacksMutex.Unlock()
 
-		// Call registered callbacks
-		for _, f := range tr.callbacks {
-			f(peripheral, r)
+	if len(tr.callbacks) == 0 {
+		fmt.Println("WARNING: No callbacks to call!")
+	}
+
+	// Call registered callbacks
+	toRemove := make([]string, 0)
+	for url, meta := range tr.callbacks {
+		if err := meta.fun(peripheral, r); err != nil {
+			toRemove = append(toRemove, url)
 		}
-	}()
+	}
+
+	for _, url := range toRemove {
+		log.Printf("Removing callback %s due to errors", url)
+		delete(tr.callbacks, url)
+	}
 }
 
-func (tr *BLETransport) AddCallback(id string, fun Callback) error {
-	tr.callbacks[id] = fun
-	return nil
+// Adds a new callback. Returns the UUID of the callback or an error
+func (tr *BLETransport) AddCallback(url string, fun Callback) (string, error) {
+	tr.callbacksMutex.Lock()
+	defer tr.callbacksMutex.Unlock()
+
+	if _, exists := tr.callbacks[url]; exists {
+		return "", fmt.Errorf("%s already registered", url)
+	}
+
+	id := uuid.New().String()
+
+	tr.callbacks[url] = CallbackMeta{
+		ID:  id,
+		fun: fun,
+	}
+
+	return id, nil
 }
 
+// Removes a callback identified by the ID
 func (tr *BLETransport) RemoveCallback(id string) error {
+	tr.callbacksMutex.Lock()
+	defer tr.callbacksMutex.Unlock()
 	delete(tr.callbacks, id)
+
 	return nil
+}
+
+// Returns the UUID associated to url, otherwise it returns the empty string
+func (tr *BLETransport) GetCallbackUUID(url string) string {
+	tr.callbacksMutex.Lock()
+	defer tr.callbacksMutex.Unlock()
+
+	if meta, exists := tr.callbacks[url]; exists {
+		return meta.ID
+	}
+
+	return ""
 }

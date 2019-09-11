@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/paypal/gatt"
 	"log"
@@ -64,33 +63,57 @@ var endpoints = []Endpoint{
 				return
 			}
 
-			callbackUUID := uuid.New().String()
+			callbackUUID := transport.GetCallbackUUID(data.Url)
+			if callbackUUID == "" {
+				log.Printf("Adding callback %s...", data.Url)
+				// Add the new callback
+				callbackUUID, err = transport.AddCallback(data.Url, func(peripheral gatt.Peripheral, reading Reading) error {
+					d := CallbackResponseData{
+						PeripheralID: peripheral.ID(),
+						Reading:      reading,
+					}
 
-			_ = transport.AddCallback(callbackUUID, func(peripheral gatt.Peripheral, reading Reading) {
+					body, err := json.Marshal(d)
+					if err != nil {
+						log.Printf("error encoding reading data: %s", err)
+						return err
+					}
 
-				d := CallbackResponseData{
-					PeripheralID: peripheral.ID(),
-					Reading:      reading,
-				}
+					log.Printf("Calling callback %s\n", data.Url)
+					resp, err := http.Post(data.Url, "application/json", bytes.NewBuffer(body))
+					if err != nil {
+						log.Printf("error calling callback: %s", err)
+						return nil
+					}
 
-				body, err := json.Marshal(d)
+					if resp.StatusCode != http.StatusOK {
+						log.Printf("Callback result unsuccessful: (%d) %s\n", resp.StatusCode, resp.Status)
+						//return fmt.Errorf("Callback result unsuccessful: (%d) %s\n", resp.StatusCode, resp.Status)
+						return nil
+					}
+
+					log.Printf("Callback %s called successfully", data.Url)
+
+					return nil
+				})
 				if err != nil {
-					log.Printf("error encoding reading data: %s", err)
+					code := http.StatusInternalServerError
+					w.WriteHeader(code)
 
+					m := &ApiResponse{
+						Code:    code,
+						Message: err.Error(),
+					}
+
+					err := json.NewEncoder(w).Encode(m)
+					if err != nil {
+						log.Println(err)
+					}
 					return
 				}
+			}
 
-				log.Printf("Calling callback %s\n", data.Url)
-				resp, err := http.Post(data.Url, "application/json", bytes.NewBuffer(body))
-				if err != nil {
-					log.Printf("error calling callback: %s", err)
-					return
-				}
-
-				if resp.StatusCode != http.StatusOK {
-					log.Printf("Callback result unsuccessful: (%d) %s\n", resp.StatusCode, resp.Status)
-				}
-			})
+			log.Printf("Callback added %s\n", data.Url)
 
 			m := ApiResponse{
 				Message: callbackUUID,

@@ -68,7 +68,7 @@ Port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
     Example body:
   ```json
   {
-  "url": "http://callbackpath:1234"
+  "url": "http://testurl:1234"
   }
   ```
   
@@ -76,7 +76,7 @@ Port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
   ```json
   {
   "code": 200,
-  "message": "Done"
+  "message": "xxxxx"
   }
   ```
     
