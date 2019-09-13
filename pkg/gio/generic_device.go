@@ -15,7 +15,8 @@ const (
 )
 
 type Action struct {
-	Name string
+	Name       string
+	ActionData ActionData
 }
 
 type GenericBLEDevice struct {
@@ -84,8 +85,10 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 						case action := <-sv.actionChannels[c.UUID().String()]:
 							log.Printf("Action requested: %s. Action UUID: %s", action.Name, c.UUID().String())
 							if c.UUID().String() == action.Name {
+								b := encodeValue(action.ActionData.Value)
+
 								// try write on the characteristic
-								if err := p.WriteCharacteristic(c, []byte{0x74}, true); err != nil {
+								if err := p.WriteCharacteristic(c, b, true); err != nil {
 									log.Printf("Failed to write on watering characteristic %s: %s\n", c.UUID(), err)
 								}
 								log.Printf("Written on characteristic %s\n", c.UUID())
@@ -133,6 +136,10 @@ func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan ch
 	return nil
 }
 
+func encodeValue(value int) []byte {
+	return []byte{byte(value)}
+}
+
 func (sv *GenericBLEDevice) OnPeripheralDisconnected(p gatt.Peripheral) error {
 	log.Println("GenericBLEDevice OnPeripheralDisconnected called")
 	return nil
@@ -163,14 +170,14 @@ func (sv *GenericBLEDevice) AvailableCharacteristics() []BLECharacteristic {
 	return sv.Characteristics
 }
 
-func (sv *GenericBLEDevice) TriggerAction(actionName string) error {
+func (sv *GenericBLEDevice) TriggerAction(actionName string, data ActionData) error {
 	log.Printf("Triggering %s\n", actionName)
 	channel, exists := sv.actionChannels[actionName]
 	if !exists {
 		return fmt.Errorf("action %s not recognised", actionName)
 	}
 
-	channel <- Action{Name: actionName}
+	channel <- Action{Name: actionName, ActionData: data}
 
 	return nil
 }

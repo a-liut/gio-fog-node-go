@@ -196,6 +196,13 @@ var endpoints = []Endpoint{
 
 			log.Printf("Requested device %s action for %s\n", actionName, deviceId)
 
+			// Try to get data
+			var data ActionData
+			err := json.NewDecoder(r.Body).Decode(&data)
+			if err != nil {
+				data.Value = 116
+			}
+
 			d := transport.GetDeviceByID(deviceId)
 			if d == nil {
 				// Not found
@@ -216,23 +223,23 @@ var endpoints = []Endpoint{
 
 			log.Printf("Device found: %s\n", d)
 
-			err := d.TriggerAction(actionName)
+			err = d.TriggerAction(actionName, data)
 
-			data := &ApiResponse{
+			resp := &ApiResponse{
 				Code:    http.StatusOK,
 				Message: "Done",
 			}
 			if err != nil {
 				// action not recognised
-				data.Code = http.StatusBadRequest
-				data.Message = err.Error()
+				resp.Code = http.StatusBadRequest
+				resp.Message = err.Error()
 			}
 
-			log.Printf("Answer: (%d) %s", data.Code, data.Message)
+			log.Printf("Answer: (%d) %s", resp.Code, resp.Message)
 
-			w.WriteHeader(data.Code)
+			w.WriteHeader(resp.Code)
 
-			err = json.NewEncoder(w).Encode(data)
+			err = json.NewEncoder(w).Encode(resp)
 			if err != nil {
 				log.Println(err)
 			}

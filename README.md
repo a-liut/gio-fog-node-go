@@ -151,7 +151,15 @@ Port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
       }
     ```
 
-- POST /devices/{deviceId}/actions/{actionName}: trigger an action on the selected device
+- POST /devices/{deviceId}/actions/{actionName}: trigger an action on the selected device.
+    It allows to specify a value to send to the device for the requested action
+
+    Example body: .../actions/<characteristicUUID>
+    ```json
+    {
+      "value": 42
+    }
+    ```
 
     Example response:
     

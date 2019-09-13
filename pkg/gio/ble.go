@@ -18,7 +18,7 @@ type BLEDevice interface {
 	OnPeripheralDisconnected(p gatt.Peripheral) error
 
 	AvailableCharacteristics() []BLECharacteristic
-	TriggerAction(actuatorName string) error
+	TriggerAction(actuatorName string, data ActionData) error
 }
 
 type BLEService struct {

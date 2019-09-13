@@ -37,3 +37,7 @@ type Room struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
+
+type ActionData struct {
+	Value int `json:"value"`
+}
