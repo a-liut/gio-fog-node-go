@@ -86,8 +86,6 @@ type BLETransport struct {
 }
 
 func (tr *BLETransport) Start(stopChan chan struct{}) error {
-	log.Println("BLE init called")
-
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
 		return err
@@ -114,7 +112,7 @@ func (tr *BLETransport) Start(stopChan chan struct{}) error {
 			conn := tr.getDeviceConnection(p)
 			if conn != nil {
 				log.Println("Calling OnPeripheralConnected...")
-				conn.Device.OnPeripheralConnected(p, conn.connectionChannel)
+				_ = conn.Device.OnPeripheralConnected(p, conn.connectionChannel)
 			} else {
 				log.Printf("OnPeripheralConnected: Connected device for ID %s not found. Maybe something went wrong...\n", p.ID())
 			}
@@ -125,7 +123,7 @@ func (tr *BLETransport) Start(stopChan chan struct{}) error {
 			conn := tr.getDeviceConnection(p)
 			if conn != nil {
 				log.Println("Calling OnPeripheralDisconnected...")
-				conn.Device.OnPeripheralDisconnected(p)
+				_ = conn.Device.OnPeripheralDisconnected(p)
 				conn.Close()
 			} else {
 				log.Printf("PeripheralDisconnected: Connected device for ID %s not found. Maybe something went wrong...\n", p.ID())
@@ -135,7 +133,7 @@ func (tr *BLETransport) Start(stopChan chan struct{}) error {
 		}),
 	)
 
-	d.Init(func(d gatt.Device, s gatt.State) {
+	_ = d.Init(func(d gatt.Device, s gatt.State) {
 		switch s {
 		case gatt.StatePoweredOn:
 			go func() {
