@@ -200,8 +200,11 @@ var endpoints = []Endpoint{
 			var data ActionData
 			err := json.NewDecoder(r.Body).Decode(&data)
 			if err != nil {
-				data.Value = 116
+				log.Println("WARNING: no data provided!")
+				data.Value = 0
 			}
+
+			log.Println(data)
 
 			d := transport.GetDeviceByID(deviceId)
 			if d == nil {
