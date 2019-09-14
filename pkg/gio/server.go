@@ -111,9 +111,11 @@ var endpoints = []Endpoint{
 					}
 					return
 				}
-			}
 
-			log.Printf("Callback added %s\n", data.Url)
+				log.Printf("Callback added %s\n", data.Url)
+			} else {
+				log.Printf("Callback %s already added.\n", data.Url)
+			}
 
 			m := ApiResponse{
 				Message: callbackUUID,
