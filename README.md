@@ -3,27 +3,27 @@
 The Gò Plants Fog Node searches for Giò-compliant devices and connects to them providing a unified REST interface to let the rest of Giò Plant platform interact with devices.
 The connection is kept open until the program stops or the device disconnects.
 
-To stop the program, send SIGINT signal.
+To stop the program, send the SIGINT signal.
 
 ## How does it work
 
-The tools starts by scanning for BLE devices. When a new SmartVase is found, it connects to it and starts to receive data.
+The tools start by scanning for BLE devices. When a new SmartVase is found, it connects to it and starts to receive data.
 Data are then forwarded to registered callbacks if any. 
 
 ### Transport
 
-The framework implemented is able to support multiple transports to connect to devices.
-Only the BLE transport is implemented in this moment.
+The framework implemented is able to support multiple kinds of transport to connect to devices.
+Only the BLE transport is implemented at this moment.
 
 In order to define a new transport, just implement the Start method and add it to the list of registered transports.
 The framework will take care of its execution.
 
 #### BLE Transport
 
-Transport implementation that allow the software to interact with BLE Gio-compliant devices.
+Transport implementation that allows the software to interact with BLE Gio-compliant devices.
 
 It provides a notification mechanism that allows remote clients to be notified when a new reading is produced by a device.
-The client register its *webhook* url and when a new Reading is produced, Fog Node makes a POST http call providing information about the device who produced the reading and the reading itself.
+The client register its *webhook* URL and when a new Reading is produced, Fog Node makes a POST HTTP call providing information about the device who produced the reading and the reading itself.
 
 ##### BLEDevice 
 BLEDevice is a representation for a device that can be handled by the system.
@@ -32,7 +32,7 @@ Thus, specialization of this interface must be used in order to handle more devi
 
 A BLEDevice stores a set of *Services* and *Characteristics* used to read published values produced by the connected device.
 Furthermore, it specifies also *actions* that used to trigger defined behaviors of a device.
-Actions names corresponds to BLE Characteristics UUID.
+Actions names correspond to BLE Characteristics UUID.
 
 ## Run
 
@@ -152,7 +152,7 @@ Port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
     ```
 
 - POST /devices/{deviceId}/actions/{actionName}: trigger an action on the selected device.
-    It allows to specify a value to send to the device for the requested action
+    It allows specifying a value to send to the device for the requested action
 
     Example body: .../actions/<characteristicUUID>
     ```json
