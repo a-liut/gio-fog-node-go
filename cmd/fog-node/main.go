@@ -1,3 +1,11 @@
+/*
+ * Fog Node
+ *
+ * A tool for connecting devices to the Giò Plants platform.
+ *
+ * API version: 1.0.0
+ * Contact: andrea.liut@gmail.com
+ */
 package main
 
 import (

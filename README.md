@@ -178,6 +178,5 @@ Port can be overridden by setting GIO_FOG_NODE_SERVER_PORT environment variable.
       ```
       
 ## TODO
-- Modularize BLE devices
 - Add configuration file for devices
 - Add REST interface for remote configuration

@@ -1,3 +1,11 @@
+/*
+ * Fog Node
+ *
+ * A tool for connecting devices to the Giò Plants platform.
+ *
+ * API version: 1.0.0
+ * Contact: andrea.liut@gmail.com
+ */
 package gio
 
 import (
@@ -12,6 +20,11 @@ import (
 	"github.com/paypal/gatt/examples/option"
 )
 
+const (
+	scannerPeriod = 10 * time.Second
+)
+
+// A BLEDevice represents a generic BLE device that can be connected to the Fog Node
 type BLEDevice interface {
 	Peripheral() *gatt.Peripheral
 	OnPeripheralConnected(p gatt.Peripheral, stopChan chan struct{}) error
@@ -21,6 +34,7 @@ type BLEDevice interface {
 	TriggerAction(actuatorName string, data ActionData) error
 }
 
+// A BLEService represents a Bluetooth Low Energy Service
 type BLEService struct {
 	UUID gatt.UUID `json:"uuid"`
 	Name string    `json:"name"`
@@ -30,6 +44,7 @@ func (bles BLEService) String() string {
 	return bles.UUID.String()
 }
 
+// A BLECharacteristic represents a Bluetooth Low Energy Characteristic
 type BLECharacteristic struct {
 	UUID           gatt.UUID               `json:"uuid"`
 	Name           string                  `json:"name"`
@@ -55,10 +70,7 @@ func (blec BLECharacteristic) String() string {
 	return blec.UUID.String()
 }
 
-const (
-	scannerPeriod = 10 * time.Second
-)
-
+// A BLEConnection represents an active connection to a BLEDevice
 type BLEConnection struct {
 	Device            BLEDevice
 	connectionChannel chan struct{}
@@ -72,11 +84,13 @@ func (conn *BLEConnection) Close() {
 
 type Callback func(p gatt.Peripheral, reading Reading) error
 
+// A CallbackMeta object stores information about a callback
 type CallbackMeta struct {
 	ID  string
 	fun Callback
 }
 
+// BLE implementation of a Transport
 type BLETransport struct {
 	connectedPeripherals map[string]BLEConnection
 	peripheralsMutex     *sync.Mutex
@@ -85,6 +99,7 @@ type BLETransport struct {
 	callbacksMutex *sync.Mutex
 }
 
+// Starts the BLE discovery process
 func (tr *BLETransport) Start(stopChan chan struct{}) error {
 	d, err := gatt.NewDevice(option.DefaultClientOptions...)
 	if err != nil {
@@ -178,6 +193,7 @@ func (tr *BLETransport) String() string {
 	return "<BLETransport>"
 }
 
+// Adds a new peripheral
 func (tr *BLETransport) addPeripheral(p gatt.Peripheral, device BLEDevice) {
 	tr.peripheralsMutex.Lock()
 	defer tr.peripheralsMutex.Unlock()
@@ -194,6 +210,7 @@ func (tr *BLETransport) addPeripheral(p gatt.Peripheral, device BLEDevice) {
 	}
 }
 
+// Removes a peripheral
 func (tr *BLETransport) removePeripheral(p gatt.Peripheral) {
 	tr.peripheralsMutex.Lock()
 	defer tr.peripheralsMutex.Unlock()
@@ -201,6 +218,7 @@ func (tr *BLETransport) removePeripheral(p gatt.Peripheral) {
 	delete(tr.connectedPeripherals, p.ID())
 }
 
+// Rrturns the active connection of a peripheral
 func (tr *BLETransport) getDeviceConnection(p gatt.Peripheral) *BLEConnection {
 	tr.peripheralsMutex.Lock()
 	defer tr.peripheralsMutex.Unlock()
@@ -209,6 +227,7 @@ func (tr *BLETransport) getDeviceConnection(p gatt.Peripheral) *BLEConnection {
 	return &d
 }
 
+// Creates a new BLEDevice from a peripheral
 func getBLEDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 	if IsEnabledDevice(p, a) {
 		return NewGenericBLEDevice(p), nil
@@ -217,6 +236,7 @@ func getBLEDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 	return nil, fmt.Errorf("not a GenericBLEDevice")
 }
 
+// Creates a new BLEDevice
 func newDevice(p gatt.Peripheral, a *gatt.Advertisement) (BLEDevice, error) {
 	device, err := getBLEDevice(p, a)
 	if err == nil {

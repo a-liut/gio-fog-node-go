@@ -1,3 +1,11 @@
+/*
+ * Fog Node
+ *
+ * A tool for connecting devices to the Giò Plants platform.
+ *
+ * API version: 1.0.0
+ * Contact: andrea.liut@gmail.com
+ */
 package gio
 
 import (
@@ -14,11 +22,13 @@ const (
 	microbitName = "bbc micro:bit"
 )
 
+// An Action represents an trigger request for an action
 type Action struct {
 	Name       string
 	ActionData ActionData
 }
 
+// A GenericBLEDevice represents a connected BLE device
 type GenericBLEDevice struct {
 	p              *gatt.Peripheral
 	actionChannels map[string]chan Action
@@ -31,6 +41,7 @@ func (sv *GenericBLEDevice) Peripheral() *gatt.Peripheral {
 	return sv.p
 }
 
+// Handles the connection process of a peripheral
 func (sv *GenericBLEDevice) OnPeripheralConnected(p gatt.Peripheral, stopChan chan struct{}) error {
 	log.Println("GenericBLEDevice OnPeripheralConnected called")
 
@@ -140,21 +151,25 @@ func encodeValue(value int) []byte {
 	return []byte{byte(value)}
 }
 
+// Handles the disconnection process of a peripheral
 func (sv *GenericBLEDevice) OnPeripheralDisconnected(p gatt.Peripheral) error {
 	log.Println("GenericBLEDevice OnPeripheralDisconnected called")
 	return nil
 }
 
+// Returns true if the peripheral is a Microbit
 func isMicrobit(p gatt.Peripheral, a *gatt.Advertisement) bool {
 	name := strings.ToLower(p.Name())
 	localname := strings.ToLower(a.LocalName)
 	return strings.Contains(name, microbitName) || strings.Contains(localname, microbitName)
 }
 
+// Creates a new reading from data sent from a BLE Characteristic
 func parseReading(c *gatt.Characteristic, b []byte) *Reading {
 	return NewReading(c.UUID().String(), fmt.Sprintf("%v", b), "")
 }
 
+// Returns if the device is authorised for connection
 func IsEnabledDevice(p gatt.Peripheral, a *gatt.Advertisement) bool {
 	return isMicrobit(p, a)
 }
@@ -170,6 +185,7 @@ func (sv *GenericBLEDevice) AvailableCharacteristics() []BLECharacteristic {
 	return sv.Characteristics
 }
 
+// Triggers an action on a device
 func (sv *GenericBLEDevice) TriggerAction(actionName string, data ActionData) error {
 	log.Printf("Triggering %s\n", actionName)
 	channel, exists := sv.actionChannels[actionName]
